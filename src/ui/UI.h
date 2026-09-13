@@ -3,6 +3,7 @@
 
 namespace opticforge::ui
 {
+  
     struct AddLensDialogState
     {
         double diameterMm = 200.0;
@@ -21,7 +22,11 @@ namespace opticforge::ui
 
         glm::dvec3 positionMm{ 0.0, 0.0, 0.0 };
     };
-
+    enum class MirrorCurvature
+    {
+        Concave,
+        Convex
+    };
     struct AddMirrorDialogState
     {
         double diameterMm = 200.0;
@@ -32,6 +37,9 @@ namespace opticforge::ui
 
         double radiusMm = 1600.0;
         double conicConstant = -1.0;
+
+        MirrorCurvature curvature =
+            MirrorCurvature::Concave; 
 
         glm::dvec3 positionMm{ 0.0, 0.0, 0.0 };
     };

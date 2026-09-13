@@ -503,6 +503,8 @@ int main(int, char**)
                 0.08f,
                 0.92f));
 
+
+      
         glBindVertexArray(
             fullscreenVao);
 
@@ -510,6 +512,7 @@ int main(int, char**)
             GL_TRIANGLES,
             0,
             3);
+        renderSys.drawProject(project, camera);
 
         ShaderProgram::unbind();
 
@@ -546,7 +549,6 @@ int main(int, char**)
     
         ShaderProgram::unbind();
 
-        renderSys.drawProject(project, camera); 
 
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

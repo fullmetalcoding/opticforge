@@ -90,12 +90,13 @@ namespace opticforge {
 		primitiveSetup(m_meshShader, lens.transform, camera);
 		m_meshShader.setVec3("uBaseColor", { 0.25, 1.0, 1.0 });
 		m_meshShader.setFloat("uOpacity", 0.5);
+		m_meshShader.setFloat("uNormalExaggeration", 1.0);
 
 		m_meshShader.setFloat("uAmbientStrength", 0.25);
 		m_meshShader.setFloat("uDiffuseStrength", 0.8);
 		m_meshShader.setFloat("uSpecularStrength", 0.5);
 		m_meshShader.setFloat("uShininess", 0.9); 
-		m_meshShader.setVec3("uLightDirection", { 0, 1.0, 0 });
+		m_meshShader.setVec3("uLightDirection", { 0.4, 0.7, -0.6 });
 		m_meshShader.setVec3("uLightColor", { 1.0, 1.0, 1.0 }); 
 
 		m_meshShader.setFloat("uFresnelStrength", 0.9);
@@ -128,18 +129,19 @@ namespace opticforge {
 		m_meshShader.bind();
 
 		primitiveSetup(m_meshShader, mirror.transform, camera);
-		m_meshShader.setVec3("uBaseColor", { 1.0, 1.0, 1.0 });
+		m_meshShader.setVec3("uBaseColor", { 0.45, 0.48, 0.55});
 		m_meshShader.setFloat("uOpacity", 1.0);
 
-		m_meshShader.setFloat("uAmbientStrength", 0.25);
-		m_meshShader.setFloat("uDiffuseStrength", 0.8);
-		m_meshShader.setFloat("uSpecularStrength", 0.5);
-		m_meshShader.setFloat("uShininess", 0.9);
-		m_meshShader.setVec3("uLightDirection", { 0, 1.0, 0 });
+		m_meshShader.setFloat("uAmbientStrength", 0.08);
+		m_meshShader.setFloat("uDiffuseStrength", 0.55);
+		m_meshShader.setFloat("uSpecularStrength", 0.85);
+		m_meshShader.setFloat("uShininess", 64.0);
+		m_meshShader.setVec3("uLightDirection", { 0.0, 0.0, -1.0 });
 		m_meshShader.setVec3("uLightColor", { 1.0, 1.0, 1.0 });
+		m_meshShader.setFloat("uNormalExaggeration", 6.0);
 
-		m_meshShader.setFloat("uFresnelStrength", 0.9);
-		m_meshShader.setFloat("uFresnelPower", 1.0);
+		m_meshShader.setFloat("uFresnelStrength", 0.15);
+		m_meshShader.setFloat("uFresnelPower", 4.0);
 
 
 

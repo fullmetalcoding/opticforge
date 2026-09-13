@@ -102,8 +102,11 @@ void main()
         specular +
         fresnelColor;
 
+  
+    
     FragColor =
         vec4(
             finalColor,
             uOpacity);
+            
 }

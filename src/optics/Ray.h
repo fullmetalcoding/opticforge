@@ -26,4 +26,12 @@ namespace opticforge::optics
         }
     };
 
+    struct OpticalRay
+    {
+        Ray ray; 
+        double wavelength = 550.0;
+        double intensity = 1.0;
+
+    };
+
 } // namespace opticforge::optics

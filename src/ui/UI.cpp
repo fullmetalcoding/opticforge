@@ -365,6 +365,32 @@ namespace opticforge::ui {
                 10.0,
                 "%.6f");
 
+            int curvatureChoice =
+                m_addMirrorDialog.curvature ==
+                MirrorCurvature::Concave
+                ? 0
+                : 1;
+            ImGui::SameLine();
+
+            if (ImGui::RadioButton(
+                "Concave",
+                curvatureChoice == 0))
+            {
+                m_addMirrorDialog.curvature =
+                    MirrorCurvature::Concave;
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::RadioButton(
+                "Convex",
+                curvatureChoice == 1))
+            {
+                m_addMirrorDialog.curvature =
+                    MirrorCurvature::Convex;
+            }
+
+
             ImGui::InputDouble(
                 "Conic Constant",
                 &m_addMirrorDialog.conicConstant,
@@ -506,9 +532,19 @@ namespace opticforge::ui {
             }
             else
             {
+                double signedRadius =
+                    std::abs(m_addMirrorDialog.radiusMm);
+
+                if (m_addMirrorDialog.curvature ==
+                    MirrorCurvature::Concave)
+                {
+                    signedRadius = -signedRadius;
+                }
+
+
                 mirror.surface.setGeometry(
                     optics::ConicGeometry{
-                        m_addMirrorDialog.radiusMm,
+                        signedRadius,
                         m_addMirrorDialog.conicConstant
                     });
             }

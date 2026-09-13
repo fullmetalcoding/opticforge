@@ -159,6 +159,8 @@ set(OPTICFORGE_SOURCES
     src/optics/OpticalInterface.cpp
     src/telescope/TelescopeProject.cpp
     src/ui/UI.cpp
+    src/raytracer/BundleGenerators.cpp
+
     
     
 )
