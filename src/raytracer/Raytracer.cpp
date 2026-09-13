@@ -52,7 +52,7 @@ namespace opticforge::raytracer {
 				//Build the interaction structure and store it in the raypath.
 				RayInteraction interaction{};
 				interaction.hit = (*intersection).hit;
-				interaction.primitiveId = (*intersection).primtiveId;
+				interaction.primitiveId = (*intersection).primitiveId;
 				interaction.incoming = currentRay;
 
 				interactions++;
@@ -135,20 +135,14 @@ namespace opticforge::raytracer {
 				planeRay, planeHit);
 		}
 		//For now we don't support crossing the observation plane. It is the explicit backstop
-       /*
+       
 		if (hitPlane
 			&& std::isfinite(planeHit.t)
 			&& planeHit.t > minHitDistance)
 		{
-			const bool allowedCrossing =
-				!observationPlane.positiveCrossingOnly
-				|| glm::dot(planeRay.direction, planeHit.normal) > 0.0;
-
-			if (allowedCrossing)
-			{
 				RayIntersection candidate{};
-				candidate.target = IntersectionTarget::ObservationPlane;
-				candidate.primitiveId = std::nullopt;
+				//candidate.target = IntersectionTarget::ObservationPlane;
+				candidate.primitiveId = 0;// std::nullopt;
 				candidate.surface = &observationPlane.surface;
 
 				// Observation-plane coordinates -> world coordinates.
@@ -162,10 +156,8 @@ namespace opticforge::raytracer {
 
 				closestT = candidate.hit.t;
 				closest = candidate;
-			}
-
 		}
-		*/
+		
 
 		// Replace closest only when a primitive hit has t < closestT.
 
@@ -229,7 +221,7 @@ namespace opticforge::raytracer {
 							RayIntersection candidate{};
 
 							// Matches the spelling in your current header.
-							candidate.primtiveId = record.id;
+							candidate.primitiveId = record.id;
 							candidate.hit = worldHit;
 
 							// Points to the original surface in the scene,

@@ -7,6 +7,7 @@ namespace opticforge::telescope
 	class TelescopeProject
 	{
 	public:
+
 		const std::vector<PrimitiveRecord>& primitives() const
 		{
 			return m_primitives; 
