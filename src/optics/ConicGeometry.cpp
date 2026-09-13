@@ -41,7 +41,8 @@ namespace opticforge::optics
 
     bool ConicGeometry::intersect(
         const Ray& localRay,
-        SurfaceHit& localHit) const
+        SurfaceHit& localHit,
+        double tMin) const
     {
         constexpr double epsilon = 1.0e-12;
 
@@ -95,8 +96,10 @@ namespace opticforge::optics
             const double candidate =
                 -C / B;
 
-            if (candidate <= epsilon)
+            if (!std::isfinite(candidate) || candidate <= tMin)
+            {
                 return false;
+            }
 
             t = candidate;
         }
@@ -146,12 +149,13 @@ namespace opticforge::optics
             if (t0 > t1)
                 std::swap(t0, t1);
 
-            // Choose the closest intersection in front of the ray.
-            if (t0 > epsilon)
+            // Select the closest root beyond the caller's exclusion distance.
+            // A rejected near-zero root must not hide the second root.
+            if (std::isfinite(t0) && (t0 > tMin))
             {
                 t = t0;
             }
-            else if (t1 > epsilon)
+            else if (std::isfinite(t1) && (t1 > tMin))
             {
                 t = t1;
             }

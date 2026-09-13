@@ -8,7 +8,8 @@ namespace opticforge::optics
 
     bool PlaneGeometry::intersect(
         const Ray& localRay,
-        SurfaceHit& localHit) const
+        SurfaceHit& localHit,
+        double tMin) const
     {
         constexpr double epsilon = 1.0e-12;
 
@@ -36,10 +37,8 @@ namespace opticforge::optics
             -localRay.origin.z /
             localRay.direction.z;
 
-        if (t <= epsilon)
+        if (!std::isfinite(t) || t <= tMin)
         {
-            // Intersection lies behind the ray origin, or is too close
-            // to safely distinguish from the current surface.
             return false;
         }
 

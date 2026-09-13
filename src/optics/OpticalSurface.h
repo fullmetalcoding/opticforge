@@ -76,7 +76,8 @@ namespace opticforge::optics
         // of the surface.
         bool intersect(
             const Ray& worldRay,
-            SurfaceHit& worldHit) const;
+            SurfaceHit& worldHit,
+            double tMin = 1e-9) const;
 
     private:
         Transform m_transform;

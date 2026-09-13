@@ -85,7 +85,8 @@ namespace opticforge::optics
 
     bool OpticalSurface::intersect(
         const Ray& worldRay,
-        SurfaceHit& worldHit) const
+        SurfaceHit& worldHit,
+        double tMin) const
     {
         //
         // Geometry classes operate entirely in the surface's canonical
@@ -112,7 +113,8 @@ namespace opticforge::optics
                 {
                     return geometry.intersect(
                         localRay,
-                        localHit);
+                        localHit,
+                        tMin);
                 },
                 m_geometry);
 

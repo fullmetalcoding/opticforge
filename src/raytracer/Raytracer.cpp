@@ -117,7 +117,7 @@ namespace opticforge::raytracer {
 
 			optics::SurfaceHit localHit{};
 
-			if (optics::PlaneGeometry{}.intersect(surfaceRay, localHit))
+			if (optics::PlaneGeometry{}.intersect(surfaceRay, localHit, minHitDistance))
 			{
 				planeHit.t = localHit.t;
 				planeHit.position =
@@ -191,7 +191,7 @@ namespace opticforge::raytracer {
 							optics::SurfaceHit parentHit{};
 
 							if (!surface.intersect(
-								surfaceParentRay, parentHit))
+								surfaceParentRay, parentHit, minHitDistance))
 							{
 								return;
 							}

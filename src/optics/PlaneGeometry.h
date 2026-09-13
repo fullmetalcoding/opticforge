@@ -22,7 +22,8 @@ namespace opticforge::optics
 
         bool intersect(
             const Ray& localRay,
-            SurfaceHit& localHit) const;
+            SurfaceHit& localHit,
+            double tMin = 1e-9) const;
 
         glm::dvec3 normalAt(
             const glm::dvec3& localPoint) const;

@@ -33,7 +33,8 @@ namespace opticforge::optics
         // rays into this local coordinate system.
         bool intersect(
             const Ray& localRay,
-            SurfaceHit& localHit) const;
+            SurfaceHit& localHit,
+            double tMin = 1e-9) const;
 
         // Returns the local-space unit normal at a point known to lie
         // on the conic.
