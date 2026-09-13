@@ -19,7 +19,7 @@ namespace opticforge::telescope {
         // Observation plane: local +Z normal faces world -Z.
         m_observationPlane = ObservationPlane{};
         m_observationPlane.transform.setPosition(
-            glm::dvec3(0.0, 100.0, 500.0));
+            glm::dvec3(0.0, 250.0, 500.0));
 
         m_observationPlane.transform.setEulerDegrees(
             glm::dvec3(0.0, 180.0, 0.0));

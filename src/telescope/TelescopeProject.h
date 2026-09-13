@@ -13,6 +13,10 @@ namespace opticforge::telescope
 			return m_primitives; 
 		}
 		void clearProject();
+
+		TelescopeProject() {
+			clearProject(); 
+		}
 		
 		TelescopePrimitive*
 			findPrimitive(PrimitiveId id)

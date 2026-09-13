@@ -45,7 +45,7 @@ namespace opticforge::telescope
         optics::OpticalSurface surface;
 
         // Full displayed width and height, in project units.
-        glm::dvec2 displaySize{ 50.0, 50.0 };
+        glm::vec2 displaySize{ 50.0, 50.0 };
 
         // Independent of the displayed rectangle.
         bool infiniteExtent = true;

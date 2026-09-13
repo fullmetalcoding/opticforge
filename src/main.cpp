@@ -516,39 +516,8 @@ int main(int, char**)
 
         ShaderProgram::unbind();
 
-        planeShader.bind();
-
-        planeShader.setMat4("uView", view);
-        planeShader.setMat4("uProjection", projection);
-
-        planeShader.setVec3("uCenter", focusCenter);
-        planeShader.setVec3("uNormal", focusNorm);
-        planeShader.setVec2("uSize", focusSize);
-
-        planeShader.setVec3("uColor", focusCol);
-        planeShader.setFloat("uOpacity", focusOpac);
-
-        glBindVertexArray(emptyVao);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-        ShaderProgram::unbind();
-
-        planeCircShader.bind(); 
-        planeCircShader.setMat4("uView", view);
-        planeCircShader.setMat4("uProjection", projection);
-
-        planeCircShader.setVec3("uCenter", pupilCenter);
-        planeCircShader.setVec3("uNormal", pupilNorm);
-        planeCircShader.setFloat("uRadius", pupilSize);
-
-        planeCircShader.setVec3("uColor", pupilCol);
-        planeCircShader.setFloat("uOpacity", pupilOpac);
-
-        glBindVertexArray(emptyVao);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    
-        ShaderProgram::unbind();
-
+        
+        
 
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

@@ -35,6 +35,10 @@ namespace opticforge
 		MeshGpu createMesh(const MeshData& meshData);
 
 		ShaderProgram m_meshShader;
+		ShaderProgram m_planeShader;
+		ShaderProgram m_planeCircShader;
+
+		GLuint m_emptyVao = 0; 
 
 		float m_aspectRatio; 
 		std::unordered_map<
