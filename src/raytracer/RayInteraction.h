@@ -1,6 +1,7 @@
 #pragma once
 #include "optics/Ray.h"
 #include "optics/SurfaceHit.h"
+#include <optional>
 
 namespace opticforge::raytracer {
 
@@ -9,7 +10,7 @@ namespace opticforge::raytracer {
         telescope::PrimitiveId primitiveId;
         optics::SurfaceHit hit;
         optics::OpticalRay incoming;
-        optics::OpticalRay outgoing;
+        std::optional<optics::OpticalRay> outgoing;
     };
 
   

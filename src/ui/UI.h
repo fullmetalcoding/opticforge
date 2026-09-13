@@ -47,6 +47,14 @@ namespace opticforge::ui
 	class UI {
 	public:
         void drawUI(telescope::TelescopeProject& project, bool & bQuit);
+        // The renderer owns this texture and must keep it alive while displayed.
+        void setPsfTraceTexture(unsigned int texture, int width, int height)
+        {
+            m_psfTraceTexture = texture;
+            m_psfTraceWidth = width;
+            m_psfTraceHeight = height;
+        }
+
 	private:
         void drawAddLensPopup(
             telescope::TelescopeProject& project);
@@ -55,5 +63,12 @@ namespace opticforge::ui
 
 		AddLensDialogState m_addLensDialog;
         AddMirrorDialogState m_addMirrorDialog;
+
+        void drawPsfTraceWindow();
+
+        bool m_showPsfTrace = false;
+        unsigned int m_psfTraceTexture = 0;
+        int m_psfTraceWidth = 512;
+        int m_psfTraceHeight = 512;
 	};
 }

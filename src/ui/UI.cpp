@@ -36,7 +36,7 @@ namespace opticforge::ui {
 
             }
             if (ImGui::BeginMenu("View")) {
-                if (ImGui::MenuItem("PSF trace"));
+                ImGui::MenuItem("PSF trace", nullptr, &m_showPsfTrace);
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
@@ -50,6 +50,7 @@ namespace opticforge::ui {
         }
         drawAddLensPopup(project); 
         drawAddMirrorPopup(project); 
+        drawPsfTraceWindow();
     }
     void UI::drawAddLensPopup(
         telescope::TelescopeProject& project)
@@ -601,5 +602,86 @@ namespace opticforge::ui {
         }
 
         ImGui::EndPopup();
+    }
+
+    void UI::drawPsfTraceWindow()
+    {
+        if (!m_showPsfTrace)
+            return;
+
+        ImGui::SetNextWindowSize(
+            ImVec2(560.0f, 600.0f),
+            ImGuiCond_FirstUseEver);
+
+        if (ImGui::Begin("PSF trace", &m_showPsfTrace))
+        {
+            const bool hasImage =
+                m_psfTraceTexture != 0 &&
+                m_psfTraceWidth > 0 &&
+                m_psfTraceHeight > 0;
+
+            if (hasImage)
+            {
+                ImGui::Text(
+                    "PSF image: %d x %d",
+                    m_psfTraceWidth,
+                    m_psfTraceHeight);
+            }
+            else
+            {
+                ImGui::TextUnformatted("No PSF trace results yet.");
+            }
+
+            ImGui::Separator();
+
+            const ImVec2 available = ImGui::GetContentRegionAvail();
+
+            if (available.x > 0.0f && available.y > 0.0f)
+            {
+                const float aspect = hasImage
+                    ? static_cast<float>(m_psfTraceWidth) /
+                    static_cast<float>(m_psfTraceHeight)
+                    : 1.0f;
+
+                ImVec2 size(available.x, available.x / aspect);
+
+                if (size.y > available.y)
+                {
+                    size.y = available.y;
+                    size.x = size.y * aspect;
+                }
+
+                const ImVec2 cursor = ImGui::GetCursorPos();
+
+                ImGui::SetCursorPos(ImVec2(
+                    cursor.x + (available.x - size.x) * 0.5f,
+                    cursor.y + (available.y - size.y) * 0.5f));
+
+                if (hasImage)
+                {
+                    // UVs for an OpenGL framebuffer texture:
+                    // flip vertically for ImGui's top-left image origin.
+                    ImGui::Image(
+                        static_cast<ImTextureID>(m_psfTraceTexture),
+                        size,
+                        ImVec2(0.0f, 1.0f),
+                        ImVec2(1.0f, 0.0f));
+                }
+                else
+                {
+                    const ImVec2 start = ImGui::GetCursorScreenPos();
+
+                    ImGui::GetWindowDrawList()->AddRectFilled(
+                        start,
+                        ImVec2(start.x + size.x, start.y + size.y),
+                        IM_COL32(0, 0, 0, 255));
+
+                    ImGui::Dummy(size);
+                }
+            }
+        }
+
+        // Required even when Begin() returns false.
+        ImGui::End();
     }
 }

@@ -12,7 +12,8 @@ namespace opticforge::raytracer {
         Blocked,
         Escaped,
         TotalInternalReflection,
-        MaxInteractions
+        MaxInteractions,
+        InvalidState
     };
     struct RayPath
     {

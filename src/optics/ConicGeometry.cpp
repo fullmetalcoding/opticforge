@@ -208,8 +208,15 @@ namespace opticforge::optics
                 0.0,
                 1.0);
         }
+        // Use a consistent normal orientation: +Z at the surface vertex.
+        // The raw implicit gradient reverses when the radius changes sign.
+        if (m_radiusOfCurvature > 0.0)
+        {
+            normal = -normal;
+        }
 
         return normal / length;
+
     }
 
     double ConicGeometry::sag(

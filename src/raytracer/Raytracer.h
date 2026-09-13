@@ -23,12 +23,26 @@ namespace opticforge::raytracer {
 	
 
 	private:
-		OpticalResponse handleInteraction(const optics::OpticalRay& incoming,
-			const RayIntersection& intersect);
+
 		RayPath traceRay(optics::OpticalRay ray, const std::vector<telescope::PrimitiveRecord>& scene) const;
+
 		std::optional<RayIntersection> findClosestIntersection(
 			const optics::OpticalRay& ray,
 			const std::vector<telescope::PrimitiveRecord>& scene) const;
+
+		OpticalResponse handleInteraction(
+			const optics::OpticalRay& incoming,
+			const RayIntersection& intersection) const;
+
+		OpticalResponse handleReflection(
+			const optics::OpticalRay& incoming,
+			const optics::SurfaceHit& hit,
+			const optics::ReflectiveInterface& interface) const;
+
+		OpticalResponse handleRefraction(
+			const optics::OpticalRay& incoming,
+			const optics::SurfaceHit& hit,
+			const optics::RefractiveInterface& interface) const;
 	
 
 	};
