@@ -160,6 +160,7 @@ set(OPTICFORGE_SOURCES
     src/telescope/TelescopeProject.cpp
     src/ui/UI.cpp
     src/raytracer/BundleGenerators.cpp
+    src/raytracer/Raytracer.cpp
 
     
     
@@ -172,14 +173,16 @@ set(OPTICFORGE_SHADERS
     src/shaders/plane.frag
 )
 
+source_group("Shaders" FILES ${OPTICFORGE_SHADERS})
+
 # Add source to this project's executable.
 add_executable (opticforge ${OPTICFORGE_SOURCES} ${OPTICFORGE_SHADERS})
+
+target_compile_features(opticforge PRIVATE cxx_std_17)
 
 target_include_directories(opticforge PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-
-source_group("Shaders" FILES ${OPTICFORGE_SHADERS})
 
 
 target_link_libraries(opticforge PRIVATE
@@ -190,6 +193,11 @@ target_link_libraries(opticforge PRIVATE
     nlohmann_json::nlohmann_json
     glm::glm
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(TBB CONFIG REQUIRED)
+    target_link_libraries(opticforge PRIVATE TBB::tbb)
+endif()
 
 # -----------------------------------------------------------------------------
 #  Compiler settings
@@ -207,6 +215,7 @@ if(MSVC)
 else()
     target_compile_options(opticforge PRIVATE -Wall -Wextra -Wno-unused-parameter)
 endif()
+
 
 # -----------------------------------------------------------------------------
 #  Visual Studio conveniences

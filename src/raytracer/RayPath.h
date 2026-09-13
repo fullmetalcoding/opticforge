@@ -1,5 +1,6 @@
 #pragma once
 #include "optics/Ray.h"
+#include "RayInteraction.h"
 
 namespace opticforge::raytracer {
     enum class RayTermination
