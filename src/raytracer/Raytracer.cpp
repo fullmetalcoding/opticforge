@@ -13,7 +13,8 @@ namespace opticforge::raytracer {
 
 	//Top level. Trace the whole initial ray bundle provided by the system
 	TraceResult RayTracer::traceRayBundle(const std::vector<optics::OpticalRay>& rayBundle,
-		const std::vector<telescope::PrimitiveRecord>& scene) const
+		const std::vector<telescope::PrimitiveRecord>& scene,
+		const telescope::ObservationPlane& observationPlane) const
 	{
 		TraceResult result;
 
@@ -25,9 +26,9 @@ namespace opticforge::raytracer {
 			rayBundle.begin(),
 			rayBundle.end(),
 			result.paths.begin(),
-			[this, &scene](const optics::OpticalRay& ray)
+			[this, &scene, &observationPlane](const optics::OpticalRay& ray)
 			{
-				return traceRay(ray, scene);
+				return traceRay(ray, scene, observationPlane);
 			});
 
 		return result;
@@ -35,7 +36,8 @@ namespace opticforge::raytracer {
 	constexpr uint32_t MAX_INTERACTIONS = 1000;
 	//Mid level. Trace the current ray to its completion across the whole scene
 	RayPath RayTracer::traceRay(optics::OpticalRay ray,
-		const std::vector<telescope::PrimitiveRecord>& scene) const
+		const std::vector<telescope::PrimitiveRecord>& scene,
+		const telescope::ObservationPlane& observationPlane) const
 	{
 		RayPath path;
 		path.initialRay = ray;
@@ -44,7 +46,7 @@ namespace opticforge::raytracer {
 		while ((path.termination == RayTermination::Active)
 			&& (interactions < MAX_INTERACTIONS))
 		{
-			if (auto intersection = findClosestIntersection(currentRay, scene))
+			if (auto intersection = findClosestIntersection(currentRay, scene, observationPlane))
 			{
 				//We got an interaction with something. 
 				//Build the interaction structure and store it in the raypath.
@@ -54,8 +56,8 @@ namespace opticforge::raytracer {
 				interaction.incoming = currentRay;
 
 				interactions++;
-				OpticalResponse resp = handleInteraction(currentRay, (*intersection)); 
-			
+				OpticalResponse resp = handleInteraction(currentRay, (*intersection));
+
 				path.termination = resp.termination;
 				//Continue with a new ray or terminate?
 				//If there is an outgoing ray, the ray did not terminate, so continue... 
@@ -63,7 +65,7 @@ namespace opticforge::raytracer {
 					interaction.outgoing = (*resp.outGoing);
 					currentRay = (*resp.outGoing);
 				}
-				path.interactions.push_back(std::move(interaction)); 
+				path.interactions.push_back(std::move(interaction));
 
 			}
 			else {
@@ -82,7 +84,8 @@ namespace opticforge::raytracer {
 	//Lowest level. Find the closest interaction for the current ray
 	std::optional<RayIntersection> RayTracer::findClosestIntersection(
 		const optics::OpticalRay& ray,
-		const std::vector<telescope::PrimitiveRecord>& scene) const
+		const std::vector<telescope::PrimitiveRecord>& scene,
+		const telescope::ObservationPlane& observationPlane) const
 	{
 		// Project units are currently millimetres.
 		// Eventually move this into TraceSettings.
@@ -90,6 +93,81 @@ namespace opticforge::raytracer {
 
 		std::optional<RayIntersection> closest;
 		double closestT = std::numeric_limits<double>::infinity();
+
+		// Test the observation plane here.
+		// World coordinates -> observation-plane coordinates.
+		const optics::Ray planeRay(
+			observationPlane.transform.worldToLocalPoint(
+				ray.ray.origin),
+			observationPlane.transform.worldToLocalDirection(
+				ray.ray.direction));
+
+		optics::SurfaceHit planeHit{};
+		bool hitPlane = false;
+
+		if (observationPlane.infiniteExtent)
+		{
+			// Bypass aperture clipping, while respecting the surface transform.
+			const auto& surfaceTransform =
+				observationPlane.surface.transform();
+
+			const optics::Ray surfaceRay(
+				surfaceTransform.worldToLocalPoint(planeRay.origin),
+				surfaceTransform.worldToLocalDirection(planeRay.direction));
+
+			optics::SurfaceHit localHit{};
+
+			if (optics::PlaneGeometry{}.intersect(surfaceRay, localHit))
+			{
+				planeHit.t = localHit.t;
+				planeHit.position =
+					surfaceTransform.localToWorldPoint(localHit.position);
+				planeHit.normal =
+					surfaceTransform.localToWorldNormal(localHit.normal);
+
+				hitPlane = true;
+			}
+		}
+		else
+		{
+			// Includes the surface transform and its configured aperture.
+			hitPlane = observationPlane.surface.intersect(
+				planeRay, planeHit);
+		}
+		//For now we don't support crossing the observation plane. It is the explicit backstop
+       /*
+		if (hitPlane
+			&& std::isfinite(planeHit.t)
+			&& planeHit.t > minHitDistance)
+		{
+			const bool allowedCrossing =
+				!observationPlane.positiveCrossingOnly
+				|| glm::dot(planeRay.direction, planeHit.normal) > 0.0;
+
+			if (allowedCrossing)
+			{
+				RayIntersection candidate{};
+				candidate.target = IntersectionTarget::ObservationPlane;
+				candidate.primitiveId = std::nullopt;
+				candidate.surface = &observationPlane.surface;
+
+				// Observation-plane coordinates -> world coordinates.
+				candidate.hit.t = planeHit.t;
+				candidate.hit.position =
+					observationPlane.transform.localToWorldPoint(
+						planeHit.position);
+				candidate.hit.normal =
+					observationPlane.transform.localToWorldNormal(
+						planeHit.normal);
+
+				closestT = candidate.hit.t;
+				closest = candidate;
+			}
+
+		}
+		*/
+
+		// Replace closest only when a primitive hit has t < closestT.
 
 		// Assumes ray.ray.direction is normalized, as required by Ray.
 		for (const auto& record : scene)

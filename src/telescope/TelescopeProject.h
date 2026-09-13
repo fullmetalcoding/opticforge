@@ -11,9 +11,8 @@ namespace opticforge::telescope
 		{
 			return m_primitives; 
 		}
-		void clearProject() {
-			m_primitives.clear(); 
-		}
+		void clearProject();
+		
 		TelescopePrimitive*
 			findPrimitive(PrimitiveId id)
 		{
@@ -50,10 +49,19 @@ namespace opticforge::telescope
 			return newRecord.id;
 
 		}
-
+		const LaunchPupil& getLaunchPupil() const {
+			return m_launchPupil;
+		}
+		const ObservationPlane& getObservationPlane() const {
+			return m_observationPlane; 
+		}
 	protected:
 		std::vector<PrimitiveRecord> m_primitives;
 		PrimitiveId m_nextPrimitive = 1; 
+
+		LaunchPupil m_launchPupil;
+		ObservationPlane m_observationPlane; 
+
 
 	};
 }

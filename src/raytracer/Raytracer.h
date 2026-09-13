@@ -6,6 +6,7 @@
 #include "RayPath.h"
 
 #include <optional>
+#include <vector> 
 
 namespace opticforge::raytracer {
 	class RayTracer
@@ -19,16 +20,21 @@ namespace opticforge::raytracer {
 		};
 	public:
 
-		TraceResult traceRayBundle(const std::vector<optics::OpticalRay>& rayBundle, const std::vector<telescope::PrimitiveRecord>& scene) const;
+		TraceResult traceRayBundle(const std::vector<optics::OpticalRay>& rayBundle,
+			const std::vector<telescope::PrimitiveRecord>& scene,
+			const telescope::ObservationPlane& observationPlane) const;
 	
 
 	private:
 
-		RayPath traceRay(optics::OpticalRay ray, const std::vector<telescope::PrimitiveRecord>& scene) const;
+		RayPath traceRay(optics::OpticalRay ray,
+			const std::vector<telescope::PrimitiveRecord>& scene, 
+			const telescope::ObservationPlane& observationPlane) const;
 
 		std::optional<RayIntersection> findClosestIntersection(
 			const optics::OpticalRay& ray,
-			const std::vector<telescope::PrimitiveRecord>& scene) const;
+			const std::vector<telescope::PrimitiveRecord>& scene,
+			const telescope::ObservationPlane& observationPlane) const;
 
 		OpticalResponse handleInteraction(
 			const optics::OpticalRay& incoming,

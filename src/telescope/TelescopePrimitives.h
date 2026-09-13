@@ -26,10 +26,40 @@ namespace opticforge::telescope
         optics::OpticalSurface surface;
 
         int widthPixels = 0;
-        int heightPixels = 0;
+        int heightPixels = 0;       
         double pixelPitchUm = 0.0;
     };
+    struct LaunchPupil
+    {
+        optics::Transform transform;
+        optics::Aperture aperture;
 
+        // Direction in pupil-local coordinates.
+        // All generated rays are parallel for a source at infinity.
+        glm::dvec3 localDirection{ 0.0, 0.0, 1.0 };
+    };
+
+    struct ObservationPlane
+    {
+        optics::Transform transform;
+        optics::OpticalSurface surface;
+
+        // Full displayed width and height, in project units.
+        glm::dvec2 displaySize{ 50.0, 50.0 };
+
+        // Independent of the displayed rectangle.
+        bool infiniteExtent = true;
+
+        // Accept rays traveling toward the surface's local +Z side.
+        bool positiveCrossingOnly = true;
+
+        ObservationPlane()
+        {
+            surface.setGeometry(optics::PlaneGeometry{});
+            surface.opticalInterface().setDetector();
+        }
+    };
+        
     using TelescopePrimitive =
         std::variant<
         Lens,
