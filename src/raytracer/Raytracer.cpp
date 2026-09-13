@@ -59,9 +59,9 @@ namespace opticforge::raytracer {
 				//Continue with a new ray or terminate?
 				//If there is an outgoing ray, the ray did not terminate, so continue... 
 				if (resp.outGoing) {
-					interaction.outgoing = (*resp.outGoing); 
-					currentRay = (*resp.outGoing); 
-				
+					interaction.outgoing = (*resp.outGoing);
+					currentRay = (*resp.outGoing);
+				}
 				path.interactions.push_back(std::move(interaction)); 
 
 			}
