@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <limits>
 #include <variant>
+#include <utility>
 
 namespace opticforge::raytracer {
 
