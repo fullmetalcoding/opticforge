@@ -15,6 +15,7 @@
 #include "renderer/ShaderManager.h"
 #include "renderer/RenderSystem.h"
 #include "renderer/PsfTextureRenderer.h"
+#include "renderer/RayPathRenderer.h"
 #include "raytracer/TraceController.h"
 #include "telescope/TelescopeProject.h"
 #include "ui/UI.h"
@@ -25,107 +26,6 @@ using namespace std;
 static void fatal(const char* what) {
 	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s: %s", what, SDL_GetError());
 	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpticForge", what, nullptr);
-}
-
-uint64_t addDefaultLens(opticforge::telescope::TelescopeProject& project) {
-	using namespace opticforge;
-
-	// Lens parameters, all linear dimensions in mm.
-	constexpr double diameter = 200.0;
-	constexpr double focalLength = 1600.0;
-	constexpr double thickness = 20.0;
-
-	// Approximate BK7 refractive index near the d-line.
-	constexpr double nAir = 1.0;
-	constexpr double nGlass = 1.5168;
-
-	// Plano-convex radius from the thin-lens approximation:
-	//
-	//     1/f = (n - 1) / R
-	//
-	constexpr double radiusOfCurvature =
-		(nGlass - 1.0) * focalLength;
-
-
-	// -----------------------------------------------------------------------------
-	// Front surface: convex conic
-	// -----------------------------------------------------------------------------
-
-	optics::OpticalSurface frontSurface;
-
-	frontSurface.setGeometry(
-		optics::ConicGeometry{
-			radiusOfCurvature,
-			0.0                    // k = 0 -> sphere
-		});
-
-	frontSurface.setAperture(
-		optics::Aperture{
-		optics::CircularAperture{
-			diameter * 0.5
-		} });
-
-	frontSurface.setOpticalInterface(
-		optics::OpticalInterface{
-		optics::RefractiveInterface{
-			nAir,
-			nGlass
-		} });
-
-
-	// -----------------------------------------------------------------------------
-	// Rear surface: plane
-	// -----------------------------------------------------------------------------
-
-	optics::OpticalSurface rearSurface;
-
-	rearSurface.setGeometry(
-		optics::PlaneGeometry{});
-
-	rearSurface.setAperture(
-		optics::Aperture{
-		optics::CircularAperture{
-			diameter * 0.5
-		} });
-
-	rearSurface.setOpticalInterface(
-		optics::OpticalInterface{
-		optics::RefractiveInterface{
-			nGlass,
-			nAir
-		} });
-
-
-	// -----------------------------------------------------------------------------
-	// Lens primitive
-	// -----------------------------------------------------------------------------
-
-	telescope::Lens lens;
-
-	lens.transform =
-		optics::Transform{};
-
-	lens.frontSurface =
-		frontSurface;
-
-	lens.rearSurface =
-		rearSurface;
-
-	lens.centerThickness =
-		thickness;
-
-	lens.transform.translate({ 00.0, 250, 0.0 });
-
-	// -----------------------------------------------------------------------------
-	// Add to project
-	// -----------------------------------------------------------------------------
-
-	telescope::PrimitiveId lensId =
-		project.addPrimitive(
-			std::move(lens));
-
-	return lensId;
-
 }
 int main(int, char**)
 {
@@ -237,6 +137,10 @@ int main(int, char**)
 	opticforge::raytracer::TraceController traceController;
 	opticforge::raytracer::TraceSettings traceSettings;
 	opticforge::renderer::PsfTextureRenderer psfRenderer;
+	opticforge::renderer::RayPathRenderer rayPathRenderer;
+
+	std::uint64_t displayedRayTraceVersion = 0;
+	std::uint64_t displayedRayGeometryVersion = 0;
 
 	std::uint64_t displayedPsfTraceVersion = 0;
 	std::uint64_t displayedPsfSettingsVersion = 0;
@@ -292,9 +196,13 @@ int main(int, char**)
 				ev.window.windowID == SDL_GetWindowID(window)) {
 				bQuit = true;
 			}
+			ImGuiIO& io = ImGui::GetIO();
+
 			switch (ev.type) {
 			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 			{
+				if (io.WantCaptureMouse)
+					break;
 				if (ev.button.button ==
 					SDL_BUTTON_LEFT)
 				{
@@ -329,6 +237,8 @@ int main(int, char**)
 
 			case SDL_EVENT_MOUSE_MOTION:
 			{
+				if (io.WantCaptureMouse)
+					break;
 				const float dx =
 					ev.motion.xrel;
 
@@ -354,6 +264,8 @@ int main(int, char**)
 
 			case SDL_EVENT_MOUSE_WHEEL:
 			{
+				if (io.WantCaptureMouse)
+					break;
 				controller.zoom(
 					ev.wheel.y);
 
@@ -382,22 +294,26 @@ int main(int, char**)
 		   main_ui.showPsf() || main_ui.showRays());
 
 		traceController.update(project, traceSettings);
-		if (traceController.resultVersion() != displayedTraceVersion)
+		if (main_ui.showRays() &&
+			(traceController.resultVersion() != displayedRayTraceVersion ||
+				main_ui.rayPathGeometryVersion() != displayedRayGeometryVersion))
 		{
-			std::cout << "Result version is dirty!" << std::endl;
 			if (const auto* completed = traceController.latestResult())
-			{/*
-				// Suggested renderer interfaces—not existing methods yet.
-				rayPathRenderer.setTraceResult(completed->result);
-
-				psfPlotter.setTraceResult(
+			{
+				rayPathRenderer.setTraceResult(
 					completed->result,
-					completed->observationPlane);
-			 */
-				std::cout << "Raytrace completed." << std::endl;
-			}
+					main_ui.rayPathSettings());
 
-			displayedTraceVersion = traceController.resultVersion();
+				main_ui.setRayPathStats(
+					rayPathRenderer.displayedRays(),
+					rayPathRenderer.truncated());
+
+				displayedRayTraceVersion =
+					traceController.resultVersion();
+
+				displayedRayGeometryVersion =
+					main_ui.rayPathGeometryVersion();
+			}
 		}
 
 		if (
@@ -548,11 +464,17 @@ int main(int, char**)
 			GL_TRIANGLES,
 			0,
 			3);
-		renderSys.drawProject(project, camera);
-
 		ShaderProgram::unbind();
 
-
+		renderSys.setAspectRatio(aspect);
+		renderSys.drawProject(project, camera);
+		if (main_ui.showRays())
+		{
+			rayPathRenderer.draw(
+				view,
+				projection,
+				main_ui.rayPathSettings());
+		}
 
 
 
@@ -564,6 +486,7 @@ int main(int, char**)
 	ImGui_ImplSDL3_Shutdown();
 	ImPlot::DestroyContext();
 	ImGui::DestroyContext();
+	rayPathRenderer.release();
 	psfRenderer.release();
 	SDL_GL_DestroyContext(gl);
 	SDL_DestroyWindow(window);

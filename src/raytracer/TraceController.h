@@ -23,6 +23,8 @@ namespace opticforge::raytracer
         std::uint32_t maxInteractions = 1000;
 
         double wavelengthNm = 550.0;
+        // 0 = automatic (leave one logical CPU for the UI where possible).
+        unsigned int workerCount = 0;
     };
 
     // Shared with workers. Contains no project or rendering data.

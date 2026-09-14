@@ -120,7 +120,8 @@ namespace opticforge {
 		//Finally, since it's treated as transparent, render the launch pupil
 		auto& launchPupil = project.getLaunchPupil();
 		glm::vec3 pupilCenter = launchPupil.transform.position(); 
-		glm::vec3 pupilNorm = glm::normalize(launchPupil.transform.rotation() * launchPupil.transform.forward());
+		glm::vec3 pupilNorm =
+			launchPupil.transform.forward();
 		float pupilSize = 100.0;
 
 		if (const auto* circle =
@@ -144,10 +145,17 @@ namespace opticforge {
 
 		m_planeCircShader.setVec3("uColor", glm::vec3{ 0,0,1 });
 		m_planeCircShader.setFloat("uOpacity", 0.75);
+		GLboolean previousDepthMask = GL_TRUE;
+		glGetBooleanv(GL_DEPTH_WRITEMASK, &previousDepthMask);
+
+		glDepthMask(GL_FALSE);
 
 		glBindVertexArray(m_emptyVao);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
+		glDepthMask(previousDepthMask);
+
+		ShaderProgram::unbind();
 		ShaderProgram::unbind();
 
 
@@ -183,16 +191,24 @@ namespace opticforge {
 		renderObj.mesh.bind(); 
 		
 
-		// Render
+		GLboolean previousDepthMask = GL_TRUE;
+		glGetBooleanv(GL_DEPTH_WRITEMASK, &previousDepthMask);
+
+		glDepthMask(GL_FALSE);
+
+		renderObj.mesh.bind();
+
 		glDrawElements(
 			GL_TRIANGLES,
 			renderObj.mesh.indexCount(),
 			GL_UNSIGNED_INT,
 			nullptr);
-		
-		//Unbind 
-		renderObj.mesh.unbind(); 
-		ShaderProgram::unbind(); 
+
+		renderObj.mesh.unbind();
+
+		glDepthMask(previousDepthMask);
+
+		ShaderProgram::unbind();
 	}
 	void RenderSystem::drawPrimitive(telescope::PrimitiveId id,
 									 const telescope::Mirror & mirror,

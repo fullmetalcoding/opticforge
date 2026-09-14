@@ -57,6 +57,10 @@ namespace opticforge::telescope
 		const LaunchPupil& getLaunchPupil() const {
 			return m_launchPupil;
 		}
+		// Call TraceController::invalidate() after changing the pupil.
+		void setLaunchPupil(const LaunchPupil& pupil) {
+			m_launchPupil = pupil;
+		}
 		const ObservationPlane& getObservationPlane() const {
 			return m_observationPlane; 
 		}

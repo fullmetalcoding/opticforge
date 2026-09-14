@@ -2,6 +2,7 @@
 #include "telescope/TelescopeProject.h"
 #include "raytracer/TraceController.h"
 #include "renderer/PsfRasterizer.h"
+#include "renderer/RayPathGeometry.h"
 
 namespace opticforge::ui
 {
@@ -51,6 +52,15 @@ namespace opticforge::ui
 	class UI {
 	public:
         void drawUI(telescope::TelescopeProject& project, bool & bQuit, raytracer::TraceController & control);
+        const renderer::RayPathRenderSettings& rayPathSettings() const
+        {
+            return m_rayPathSettings;
+        }
+        std::uint64_t rayPathGeometryVersion() const { return m_rayPathGeometryVersion; }
+        void setRayPathStats(std::size_t rays, bool truncated)
+        {
+            m_displayedRays = rays; m_rayPathsTruncated = truncated;
+        }
         // The renderer owns this texture and must keep it alive while displayed.
         void setPsfTraceTexture(unsigned int texture, int width, int height)
         {
@@ -75,6 +85,14 @@ namespace opticforge::ui
         }
 
 	private:
+        void drawTraceSettingsWindow(telescope::TelescopeProject& project,
+            raytracer::TraceController& control, raytracer::TraceSettings& settings);
+        bool m_showTraceSettings = false;
+        renderer::RayPathRenderSettings m_rayPathSettings;
+        std::uint64_t m_rayPathGeometryVersion = 1;
+        std::size_t m_displayedRays = 0;
+
+        bool m_rayPathsTruncated = false;
         void drawAddLensPopup(
             telescope::TelescopeProject& project, raytracer::TraceController& control);
         void drawAddMirrorPopup(

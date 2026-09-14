@@ -15,6 +15,10 @@ namespace opticforge
 	class RenderSystem
 	{
 	public:
+		void setAspectRatio(float aspect)
+		{
+			m_aspectRatio = aspect;
+		}
 		RenderObject& getOrCreateMirrorRenderObject(
 			telescope::PrimitiveId id,
 			const telescope::Mirror& mirror

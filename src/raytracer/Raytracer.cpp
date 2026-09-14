@@ -75,7 +75,6 @@ namespace opticforge::raytracer {
 			}
 			else {
 				//This ray did not interact with anything and thus escaped. 
-				std::cout << "Ray: " << rayCount << " escaped." << std::endl;
 				path.termination = RayTermination::Escaped;
 			}
 		}

@@ -159,6 +159,7 @@ set(OPTICFORGE_SOURCES
     src/optics/OpticalInterface.cpp
     src/telescope/TelescopeProject.cpp
     src/ui/UI.cpp
+    src/ui/TraceSettingsWindow.cpp
     src/raytracer/BundleGenerators.cpp
     src/raytracer/Raytracer.cpp
     src/raytracer/TraceController.cpp
@@ -166,6 +167,8 @@ set(OPTICFORGE_SOURCES
     src/renderer/PsfRasterizer.cpp
     src/renderer/PsfTextureRenderer.h
     src/renderer/PsfTextureRenderer.cpp
+    src/renderer/RayPathRenderer.cpp
+    src/renderer/RayPathGeometry.cpp
 )
 
 set(OPTICFORGE_SHADERS
@@ -173,6 +176,12 @@ set(OPTICFORGE_SHADERS
     src/shaders/grid.frag
     src/shaders/plane.vert
     src/shaders/plane.frag
+    src/shaders/planeCirc.vert
+    src/shaders/planeCirc.frag
+    src/shaders/mesh.vert
+    src/shaders/mesh.frag
+    src/shaders/raypath.vert
+    src/shaders/raypath.frag
 )
 
 source_group("Shaders" FILES ${OPTICFORGE_SHADERS})
