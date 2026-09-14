@@ -20,21 +20,21 @@ namespace opticforge::ui
                 // typed numbers. Arrow buttons still work normally.
                 constexpr auto commit = ImGuiInputTextFlags_EnterReturnsTrue;
                 int count = static_cast<int>(std::min<std::size_t>(settings.rayCount, 1000000));
-                if (ImGui::InputInt("Number of rays", &count, 100, 1000, commit))
+                if (ImGui::InputInt("Number of rays", &count, 100, 1000))
                 {
                     settings.rayCount = static_cast<std::size_t>(std::clamp(count, 1, 1000000));
                     traceChanged = true;
                 }
                 auto seed = settings.randomSeed;
                 if (ImGui::InputScalar("Monte Carlo seed", ImGuiDataType_U32, &seed,
-                    nullptr, nullptr, "%u", commit))
+                    nullptr, nullptr, "%u"))
                 {
                     settings.randomSeed = seed;
                     traceChanged = true;
                 }
                 int workers = static_cast<int>(settings.workerCount);
                 const auto hardware = std::max(1u, std::thread::hardware_concurrency());
-                if (ImGui::InputInt("Worker threads (0 = auto)", &workers, 1, 4, commit))
+                if (ImGui::InputInt("Worker threads (0 = auto)", &workers, 1, 4))
                 {
                     settings.workerCount = static_cast<unsigned>(
                         std::clamp(workers, 0, static_cast<int>(hardware)));
@@ -43,14 +43,14 @@ namespace opticforge::ui
                 ImGui::Text("Available logical CPUs: %u", hardware);
                 ImGui::TextDisabled("Auto leaves one logical CPU free where possible.");
                 int interactions = static_cast<int>(settings.maxInteractions);
-                if (ImGui::InputInt("Maximum interactions", &interactions, 1, 10, commit))
+                if (ImGui::InputInt("Maximum interactions", &interactions, 1, 10))
                 {
                     settings.maxInteractions = static_cast<std::uint32_t>(
                         std::clamp(interactions, 1, 10000));
                     traceChanged = true;
                 }
                 double wavelength = settings.wavelengthNm;
-                if (ImGui::InputDouble("Wavelength (nm)", &wavelength, 1, 10, "%.3f", commit)
+                if (ImGui::InputDouble("Wavelength (nm)", &wavelength, 1, 10, "%.3f")
                     && std::isfinite(wavelength) && wavelength > 0.0)
                 {
                     settings.wavelengthNm = wavelength;
@@ -62,9 +62,9 @@ namespace opticforge::ui
                 double angleX = glm::degrees(std::atan2(direction.x, direction.z));
                 double angleY = glm::degrees(std::atan2(direction.y, direction.z));
                 bool angleChanged = ImGui::InputDouble("Field X (deg)", &angleX,
-                    0.01, 0.1, "%.6f", commit);
+                    0.01, 0.1, "%.6f");
                 angleChanged |= ImGui::InputDouble("Field Y (deg)", &angleY,
-                    0.01, 0.1, "%.6f", commit);
+                    0.01, 0.1, "%.6f");
                 if (angleChanged && std::isfinite(angleX) && std::isfinite(angleY)
                     && std::abs(angleX) < 89.0 && std::abs(angleY) < 89.0)
                 {
@@ -85,12 +85,12 @@ namespace opticforge::ui
                 auto pupil = project.getLaunchPupil();
                 auto position = pupil.transform.position();
                 auto rotation = pupil.transform.eulerDegrees();
-                bool moved = ImGui::InputDouble("Position X (mm)", &position.x, 1, 10, "%.6f", commit);
-                moved |= ImGui::InputDouble("Position Y (mm)", &position.y, 1, 10, "%.6f", commit);
-                moved |= ImGui::InputDouble("Position Z (mm)", &position.z, 1, 10, "%.6f", commit);
-                bool rotated = ImGui::InputDouble("Rotation X (deg)", &rotation.x, 0.1, 1, "%.6f", commit);
-                rotated |= ImGui::InputDouble("Rotation Y (deg)", &rotation.y, 0.1, 1, "%.6f", commit);
-                rotated |= ImGui::InputDouble("Rotation Z (deg)", &rotation.z, 0.1, 1, "%.6f", commit);
+                bool moved = ImGui::InputDouble("Position X (mm)", &position.x, 1, 10, "%.6f");
+                moved |= ImGui::InputDouble("Position Y (mm)", &position.y, 1, 10, "%.6f");
+                moved |= ImGui::InputDouble("Position Z (mm)", &position.z, 1, 10, "%.6f");
+                bool rotated = ImGui::InputDouble("Rotation X (deg)", &rotation.x, 0.1, 1, "%.6f");
+                rotated |= ImGui::InputDouble("Rotation Y (deg)", &rotation.y, 0.1, 1, "%.6f");
+                rotated |= ImGui::InputDouble("Rotation Z (deg)", &rotation.z, 0.1, 1, "%.6f");
                 const auto finite = [](const glm::dvec3& v)
                     { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); };
                 bool pupilChanged = false;
@@ -105,7 +105,7 @@ namespace opticforge::ui
                 if (const auto* circle = std::get_if<optics::CircularAperture>(&pupil.aperture.geometry()))
                 {
                     double diameter = 2.0 * circle->radius;
-                    if (ImGui::InputDouble("Diameter (mm)", &diameter, 1, 10, "%.6f", commit)
+                    if (ImGui::InputDouble("Diameter (mm)", &diameter, 1, 10, "%.6f")
                         && std::isfinite(diameter) && diameter > 0.0)
                     {
                         pupil.aperture = optics::Aperture{ optics::CircularAperture{diameter * 0.5} };
@@ -124,8 +124,7 @@ namespace opticforge::ui
             {
                 ImGui::Checkbox("Show ray paths", &m_showRayPaths);
                 int maxRays = m_rayPathSettings.maxRays;
-                if (ImGui::InputInt("Maximum displayed rays", &maxRays, 100, 1000,
-                    ImGuiInputTextFlags_EnterReturnsTrue))
+                if (ImGui::InputInt("Maximum displayed rays", &maxRays, 100, 1000))
                 {
                     m_rayPathSettings.maxRays = std::clamp(maxRays, 0, 100000);
                     ++m_rayPathGeometryVersion;
@@ -138,8 +137,7 @@ namespace opticforge::ui
                     1.0f, 10.0f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
                 ImGui::TextDisabled("Line thickness is limited by your OpenGL driver.");
                 double length = m_rayPathSettings.escapeLengthMm;
-                if (ImGui::InputDouble("Escape extension (mm)", &length, 10, 100, "%.3f",
-                    ImGuiInputTextFlags_EnterReturnsTrue) && std::isfinite(length) && length >= 0)
+                if (ImGui::InputDouble("Escape extension (mm)", &length, 10, 100, "%.3f") && std::isfinite(length) && length >= 0)
                 {
                     m_rayPathSettings.escapeLengthMm = length;
                     ++m_rayPathGeometryVersion;

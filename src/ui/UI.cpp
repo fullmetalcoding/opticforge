@@ -52,14 +52,17 @@ namespace opticforge::ui {
                 std::isfinite(degrees.z);
         }
     }
-    void UI::drawUI(telescope::TelescopeProject& project, 
+    void UI::drawUI(telescope::TelescopeProject& project,
         bool& bQuit,
-        raytracer::TraceController &  traceController
+        raytracer::TraceController& traceController,
+        raytracer::TraceSettings& traceSettings
+
         )
     {
         //Super janky. Refactor later to have an active menu dialog state. 
         bool openAddLensPopup = false;
         bool openAddMirrorPopup = false; 
+       
 
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
@@ -87,22 +90,15 @@ namespace opticforge::ui {
                     ImGui::EndMenu();
                 }
                 ImGui::EndMenu();
-                if (ImGui::BeginMenu("Trace"))
-                {
-                    bool autoUpdate = traceController.autoUpdate();
-
-                    if (ImGui::MenuItem("Auto Update", nullptr, &autoUpdate))
-                    {
-                        traceController.setAutoUpdate(autoUpdate);
-                    }
-
-                    ImGui::EndMenu();
-                }
 
             }
             if (ImGui::BeginMenu("Trace"))
             {
                 bool autoUpdate = traceController.autoUpdate();
+                if (ImGui::MenuItem("Settings..."))
+                {
+                    m_showTraceSettings = true;
+                }
 
                 if (ImGui::MenuItem("Auto Update", nullptr, &autoUpdate))
                 {
@@ -125,6 +121,8 @@ namespace opticforge::ui {
         else if (openAddMirrorPopup) {
             ImGui::OpenPopup("AddMirror");
         }
+       
+        drawTraceSettingsWindow(project, traceController, traceSettings);
         drawAddLensPopup(project, traceController); 
         drawAddMirrorPopup(project, traceController); 
         drawPsfTraceWindow();

@@ -4,6 +4,7 @@
 #include "renderer/PsfRasterizer.h"
 #include "renderer/RayPathGeometry.h"
 
+
 namespace opticforge::ui
 {
   
@@ -51,7 +52,8 @@ namespace opticforge::ui
 
 	class UI {
 	public:
-        void drawUI(telescope::TelescopeProject& project, bool & bQuit, raytracer::TraceController & control);
+        void drawUI(telescope::TelescopeProject& project, bool & bQuit, raytracer::TraceController & control,
+            raytracer::TraceSettings & traceSettings);
         const renderer::RayPathRenderSettings& rayPathSettings() const
         {
             return m_rayPathSettings;

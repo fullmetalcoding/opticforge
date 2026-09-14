@@ -288,7 +288,7 @@ int main(int, char**)
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL3_NewFrame();
 		ImGui::NewFrame();
-		main_ui.drawUI(project, bQuit, traceController);
+		main_ui.drawUI(project, bQuit, traceController, traceSettings);
 		// Each frame:
 		traceController.setResultsNeeded(
 		   main_ui.showPsf() || main_ui.showRays());
