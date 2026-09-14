@@ -23,6 +23,7 @@ namespace opticforge::ui
         double refractiveIndex = 1.5168;
 
         glm::dvec3 positionMm{ 0.0, 0.0, 0.0 };
+        glm::dvec3 orientationDegrees{ 0.0, 0.0, 0.0 };
     };
     enum class MirrorCurvature
     {
@@ -44,6 +45,7 @@ namespace opticforge::ui
             MirrorCurvature::Concave; 
 
         glm::dvec3 positionMm{ 0.0, 0.0, 0.0 };
+        glm::dvec3 orientationDegrees{ 0.0, 0.0, 0.0 };
     };
 
 	class UI {

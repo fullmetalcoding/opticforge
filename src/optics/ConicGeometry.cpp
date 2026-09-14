@@ -149,13 +149,58 @@ namespace opticforge::optics
             if (t0 > t1)
                 std::swap(t0, t1);
 
-            // Select the closest root beyond the caller's exclusion distance.
-            // A rejected near-zero root must not hide the second root.
-            if (std::isfinite(t0) && (t0 > tMin))
+            // A conic described by the implicit quadratic can contain more than
+            // one mathematical branch. Only accept the branch described by sag(),
+            // i.e. the physical optical surface passing through the vertex.
+            const auto isPhysicalBranch =
+                [&](double candidate) -> bool
+                {
+                    if (!std::isfinite(candidate) ||
+                        candidate <= tMin)
+                    {
+                        return false;
+                    }
+
+                    const glm::dvec3 point =
+                        localRay.pointAt(candidate);
+
+                    const double r =
+                        std::hypot(point.x, point.y);
+
+                    const double expectedZ =
+                        sag(r);
+
+                    if (!std::isfinite(expectedZ))
+                        return false;
+
+                    const double scale =
+                        std::max({
+                            1.0,
+                            std::abs(m_radiusOfCurvature),
+                            std::abs(point.z),
+                            std::abs(expectedZ)
+                            });
+
+                    return
+                        std::abs(point.z - expectedZ) <=
+                        1.0e-10 * scale;
+                };
+
+            const bool valid0 =
+                isPhysicalBranch(t0);
+
+            const bool valid1 =
+                isPhysicalBranch(t1);
+
+            if (valid0 && valid1)
+            {
+                t = std::min(t0, t1);
+            }
+            else if (valid0)
             {
                 t = t0;
             }
-            else if (std::isfinite(t1) && (t1 > tMin))
+            else if (valid1)
             {
                 t = t1;
             }

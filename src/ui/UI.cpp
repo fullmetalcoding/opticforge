@@ -3,7 +3,58 @@
 #include <cmath>
 
 namespace opticforge::ui {
-    void UI::drawUI(telescope::TelescopeProject& project, bool& bQuit, raytracer::TraceController &  traceController
+    namespace
+    {
+        void drawOrientationInputs(
+            const char* id,
+            glm::dvec3& degrees)
+        {
+            ImGui::PushID(id);
+
+            ImGui::Spacing();
+            ImGui::TextUnformatted("Orientation");
+            ImGui::Separator();
+
+            ImGui::InputDouble(
+                "Rotation X (deg)",
+                &degrees.x,
+                0.1,
+                1.0,
+                "%.6f");
+
+            ImGui::InputDouble(
+                "Rotation Y (deg)",
+                &degrees.y,
+                0.1,
+                1.0,
+                "%.6f");
+
+            ImGui::InputDouble(
+                "Rotation Z (deg)",
+                &degrees.z,
+                0.1,
+                1.0,
+                "%.6f");
+
+            if (ImGui::Button("Reset orientation"))
+            {
+                degrees = glm::dvec3(0.0);
+            }
+
+            ImGui::PopID();
+        }
+
+        bool validOrientation(const glm::dvec3& degrees)
+        {
+            return
+                std::isfinite(degrees.x) &&
+                std::isfinite(degrees.y) &&
+                std::isfinite(degrees.z);
+        }
+    }
+    void UI::drawUI(telescope::TelescopeProject& project, 
+        bool& bQuit,
+        raytracer::TraceController &  traceController
         )
     {
         //Super janky. Refactor later to have an active menu dialog state. 
@@ -14,6 +65,7 @@ namespace opticforge::ui {
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("New project...")) {
                     project.clearProject(); 
+                    traceController.invalidate();
                 }
                 if (ImGui::MenuItem("Open project..."));
                 if (ImGui::MenuItem("Save project..."));
@@ -201,6 +253,9 @@ namespace opticforge::ui {
             1.0,
             10.0,
             "%.3f");
+        drawOrientationInputs(
+            "LensOrientation",
+            m_addLensDialog.orientationDegrees);
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -209,7 +264,8 @@ namespace opticforge::ui {
             m_addLensDialog.diameterMm > 0.0 &&
             m_addLensDialog.thicknessMm > 0.0 &&
             m_addLensDialog.refractiveIndex > 0.0 &&
-            m_addLensDialog.centralHoleMm >= 0.0; 
+            m_addLensDialog.centralHoleMm >= 0.0 &&
+            validOrientation(m_addLensDialog.orientationDegrees);
 
         if (!valid)
             ImGui::BeginDisabled();
@@ -220,6 +276,9 @@ namespace opticforge::ui {
 
             lens.transform.setPosition(
                 m_addLensDialog.positionMm);
+
+            lens.transform.setEulerDegrees(
+                m_addLensDialog.orientationDegrees);
 
             lens.centerThickness =
                 m_addLensDialog.thicknessMm;
@@ -497,6 +556,9 @@ namespace opticforge::ui {
             1.0,
             10.0,
             "%.3f");
+        drawOrientationInputs(
+            "MirrorOrientation",
+            m_addMirrorDialog.orientationDegrees);
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -510,12 +572,12 @@ namespace opticforge::ui {
         const bool valid =
             m_addMirrorDialog.diameterMm > 0.0 &&
             m_addMirrorDialog.thicknessMm > 0.0 &&
-            m_addMirrorDialog.centralHoleMm >= 0.0 && 
+            m_addMirrorDialog.centralHoleMm >= 0.0 &&
             (
                 m_addMirrorDialog.surfacePlane ||
-                m_addMirrorDialog.radiusMm != 0.0 
-               
-                );
+                m_addMirrorDialog.radiusMm != 0.0
+                ) &&
+            validOrientation(m_addMirrorDialog.orientationDegrees);
 
         if (!valid)
         {
@@ -538,6 +600,9 @@ namespace opticforge::ui {
 
             mirror.transform.setPosition(
                 m_addMirrorDialog.positionMm);
+
+            mirror.transform.setEulerDegrees(
+                m_addMirrorDialog.orientationDegrees);
 
             mirror.thickness =
                 m_addMirrorDialog.thicknessMm;
