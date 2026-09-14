@@ -1,8 +1,10 @@
 #include "UI.h"
 #include "imgui.h"
 
+
 namespace opticforge::ui {
-    void UI::drawUI(telescope::TelescopeProject& project, bool & bQuit)
+    void UI::drawUI(telescope::TelescopeProject& project, bool& bQuit, raytracer::TraceController &  traceController
+        )
     {
         //Super janky. Refactor later to have an active menu dialog state. 
         bool openAddLensPopup = false;
@@ -33,10 +35,33 @@ namespace opticforge::ui {
                     ImGui::EndMenu();
                 }
                 ImGui::EndMenu();
+                if (ImGui::BeginMenu("Trace"))
+                {
+                    bool autoUpdate = traceController.autoUpdate();
+
+                    if (ImGui::MenuItem("Auto Update", nullptr, &autoUpdate))
+                    {
+                        traceController.setAutoUpdate(autoUpdate);
+                    }
+
+                    ImGui::EndMenu();
+                }
 
             }
+            if (ImGui::BeginMenu("Trace"))
+            {
+                bool autoUpdate = traceController.autoUpdate();
+
+                if (ImGui::MenuItem("Auto Update", nullptr, &autoUpdate))
+                {
+                    traceController.setAutoUpdate(autoUpdate);
+                }
+
+                ImGui::EndMenu();
+            }
             if (ImGui::BeginMenu("View")) {
-                ImGui::MenuItem("PSF trace", nullptr, &m_showPsfTrace);
+                ImGui::MenuItem("Ray Paths", nullptr, &m_showRayPaths);
+                ImGui::MenuItem("PSF trace...", nullptr, &m_showPsfTrace);
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
@@ -48,12 +73,12 @@ namespace opticforge::ui {
         else if (openAddMirrorPopup) {
             ImGui::OpenPopup("AddMirror");
         }
-        drawAddLensPopup(project); 
-        drawAddMirrorPopup(project); 
+        drawAddLensPopup(project, traceController); 
+        drawAddMirrorPopup(project, traceController); 
         drawPsfTraceWindow();
     }
     void UI::drawAddLensPopup(
-        telescope::TelescopeProject& project)
+        telescope::TelescopeProject& project, raytracer::TraceController& control)
     {
         if (!ImGui::BeginPopupModal(
             "AddLens",
@@ -285,6 +310,7 @@ namespace opticforge::ui {
 
             project.addPrimitive(
                 std::move(lens));
+            control.invalidate();
 
             ImGui::CloseCurrentPopup();
         }
@@ -303,7 +329,7 @@ namespace opticforge::ui {
     }
 
     void UI::drawAddMirrorPopup(
-        telescope::TelescopeProject& project)
+        telescope::TelescopeProject& project, raytracer::TraceController& control)
     {
         if (!ImGui::BeginPopupModal(
             "AddMirror",
@@ -585,6 +611,7 @@ namespace opticforge::ui {
 
             project.addPrimitive(
                 std::move(mirror));
+            control.invalidate();
 
             ImGui::CloseCurrentPopup();
         }

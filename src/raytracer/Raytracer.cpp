@@ -7,6 +7,7 @@
 #include <limits>
 #include <variant>
 #include <utility>
+#include <iostream>
 
 namespace opticforge::raytracer {
 
@@ -14,7 +15,8 @@ namespace opticforge::raytracer {
 	//Top level. Trace the whole initial ray bundle provided by the system
 	TraceResult RayTracer::traceRayBundle(const std::vector<optics::OpticalRay>& rayBundle,
 		const std::vector<telescope::PrimitiveRecord>& scene,
-		const telescope::ObservationPlane& observationPlane) const
+		const telescope::ObservationPlane& observationPlane, 
+		uint32_t maxInteractions) const
 	{
 		TraceResult result;
 
@@ -26,26 +28,29 @@ namespace opticforge::raytracer {
 			rayBundle.begin(),
 			rayBundle.end(),
 			result.paths.begin(),
-			[this, &scene, &observationPlane](const optics::OpticalRay& ray)
+			[this, &scene, &observationPlane, maxInteractions](const optics::OpticalRay& ray)
 			{
-				return traceRay(ray, scene, observationPlane);
+				return traceRay(ray, scene, observationPlane,maxInteractions);
 			});
 
 		return result;
 	}
-	constexpr uint32_t MAX_INTERACTIONS = 1000;
+
 	//Mid level. Trace the current ray to its completion across the whole scene
 	RayPath RayTracer::traceRay(optics::OpticalRay ray,
 		const std::vector<telescope::PrimitiveRecord>& scene,
-		const telescope::ObservationPlane& observationPlane) const
+		const telescope::ObservationPlane& observationPlane, 
+		uint32_t max_interactions) const
 	{
 		RayPath path;
 		path.initialRay = ray;
 		unsigned int interactions = 0;
 		optics::OpticalRay currentRay = ray;
+		int rayCount = 0; 
 		while ((path.termination == RayTermination::Active)
-			&& (interactions < MAX_INTERACTIONS))
+			&& (interactions < max_interactions))
 		{
+			rayCount++; 
 			if (auto intersection = findClosestIntersection(currentRay, scene, observationPlane))
 			{
 				//We got an interaction with something. 
@@ -70,6 +75,7 @@ namespace opticforge::raytracer {
 			}
 			else {
 				//This ray did not interact with anything and thus escaped. 
+				std::cout << "Ray: " << rayCount << " escaped." << std::endl;
 				path.termination = RayTermination::Escaped;
 			}
 		}

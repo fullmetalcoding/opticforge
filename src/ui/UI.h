@@ -1,5 +1,6 @@
 #pragma once
 #include "telescope/TelescopeProject.h"
+#include "raytracer/TraceController.h"
 
 namespace opticforge::ui
 {
@@ -46,7 +47,7 @@ namespace opticforge::ui
 
 	class UI {
 	public:
-        void drawUI(telescope::TelescopeProject& project, bool & bQuit);
+        void drawUI(telescope::TelescopeProject& project, bool & bQuit, raytracer::TraceController & control);
         // The renderer owns this texture and must keep it alive while displayed.
         void setPsfTraceTexture(unsigned int texture, int width, int height)
         {
@@ -54,12 +55,18 @@ namespace opticforge::ui
             m_psfTraceWidth = width;
             m_psfTraceHeight = height;
         }
+        bool showPsf() {
+            return m_showPsfTrace;
+        }
+        bool showRays() {
+            return m_showRayPaths;
+        }
 
 	private:
         void drawAddLensPopup(
-            telescope::TelescopeProject& project);
+            telescope::TelescopeProject& project, raytracer::TraceController& control);
         void drawAddMirrorPopup(
-            telescope::TelescopeProject& project); 
+            telescope::TelescopeProject& project, raytracer::TraceController& control);
 
 		AddLensDialogState m_addLensDialog;
         AddMirrorDialogState m_addMirrorDialog;
@@ -67,6 +74,9 @@ namespace opticforge::ui
         void drawPsfTraceWindow();
 
         bool m_showPsfTrace = false;
+        bool m_showRayPaths = false; 
+
+
         unsigned int m_psfTraceTexture = 0;
         int m_psfTraceWidth = 512;
         int m_psfTraceHeight = 512;

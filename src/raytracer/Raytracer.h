@@ -22,14 +22,16 @@ namespace opticforge::raytracer {
 
 		TraceResult traceRayBundle(const std::vector<optics::OpticalRay>& rayBundle,
 			const std::vector<telescope::PrimitiveRecord>& scene,
-			const telescope::ObservationPlane& observationPlane) const;
+			const telescope::ObservationPlane& observationPlane,
+			uint32_t max_interactions = 1000) const;
 	
 
 	private:
 
 		RayPath traceRay(optics::OpticalRay ray,
 			const std::vector<telescope::PrimitiveRecord>& scene, 
-			const telescope::ObservationPlane& observationPlane) const;
+			const telescope::ObservationPlane& observationPlane,
+			uint32_t max_interactions = 1000) const;
 
 		std::optional<RayIntersection> findClosestIntersection(
 			const optics::OpticalRay& ray,

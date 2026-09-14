@@ -161,9 +161,7 @@ set(OPTICFORGE_SOURCES
     src/ui/UI.cpp
     src/raytracer/BundleGenerators.cpp
     src/raytracer/Raytracer.cpp
-
-    
-    
+    src/raytracer/TraceController.cpp
 )
 
 set(OPTICFORGE_SHADERS
