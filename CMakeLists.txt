@@ -162,6 +162,10 @@ set(OPTICFORGE_SOURCES
     src/raytracer/BundleGenerators.cpp
     src/raytracer/Raytracer.cpp
     src/raytracer/TraceController.cpp
+    src/renderer/PsfRasterizer.h
+    src/renderer/PsfRasterizer.cpp
+    src/renderer/PsfTextureRenderer.h
+    src/renderer/PsfTextureRenderer.cpp
 )
 
 set(OPTICFORGE_SHADERS

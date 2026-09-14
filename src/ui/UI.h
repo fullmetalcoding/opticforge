@@ -1,6 +1,7 @@
 #pragma once
 #include "telescope/TelescopeProject.h"
 #include "raytracer/TraceController.h"
+#include "renderer/PsfRasterizer.h"
 
 namespace opticforge::ui
 {
@@ -55,11 +56,20 @@ namespace opticforge::ui
             m_psfTraceWidth = width;
             m_psfTraceHeight = height;
         }
-        bool showPsf() {
+        bool showPsf() const {
             return m_showPsfTrace;
         }
-        bool showRays() {
+        bool showRays() const {
             return m_showRayPaths;
+        }
+        const renderer::PsfRenderSettings& psfSettings() const
+        {
+            return m_psfSettings;
+        }
+
+        std::uint64_t psfSettingsVersion() const
+        {
+            return m_psfSettingsVersion;
         }
 
 	private:
@@ -80,5 +90,7 @@ namespace opticforge::ui
         unsigned int m_psfTraceTexture = 0;
         int m_psfTraceWidth = 512;
         int m_psfTraceHeight = 512;
+        renderer::PsfRenderSettings m_psfSettings;
+        std::uint64_t m_psfSettingsVersion = 1;
 	};
 }

@@ -10,7 +10,7 @@ namespace opticforge::telescope {
             glm::dvec3(0.0, 250.0, -500.0));
 
         m_launchPupil.aperture = optics::Aperture{
-            optics::CircularAperture{250.0} // Radius in mm.
+            optics::CircularAperture{125.0} // Radius in mm.
         };
 
         m_launchPupil.localDirection =

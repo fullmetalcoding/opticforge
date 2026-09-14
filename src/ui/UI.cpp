@@ -1,6 +1,6 @@
 #include "UI.h"
 #include "imgui.h"
-
+#include <cmath>
 
 namespace opticforge::ui {
     void UI::drawUI(telescope::TelescopeProject& project, bool& bQuit, raytracer::TraceController &  traceController
@@ -642,6 +642,120 @@ namespace opticforge::ui {
 
         if (ImGui::Begin("PSF trace", &m_showPsfTrace))
         {
+            bool changed = false;
+
+            int background =
+                static_cast<int>(m_psfSettings.background);
+
+            if (ImGui::Combo(
+                "Background",
+                &background,
+                "Black\0White\0"))
+            {
+                m_psfSettings.background =
+                    static_cast<renderer::PsfBackground>(background);
+
+                changed = true;
+            }
+
+            int mark = static_cast<int>(m_psfSettings.mark);
+
+            if (ImGui::Combo(
+                "Render as",
+                &mark,
+                "Single pixel\0Gaussian splat\0"))
+            {
+                m_psfSettings.mark =
+                    static_cast<renderer::PsfMark>(mark);
+
+                changed = true;
+            }
+
+            if (m_psfSettings.mark == renderer::PsfMark::Gaussian)
+            {
+                float sigma =
+                    static_cast<float>(m_psfSettings.sigmaPixels);
+
+                if (ImGui::SliderFloat(
+                    "Sigma (pixels)",
+                    &sigma,
+                    0.25f,
+                    8.0f,
+                    "%.2f",
+                    ImGuiSliderFlags_AlwaysClamp))
+                {
+                    m_psfSettings.sigmaPixels = sigma;
+                    changed = true;
+                }
+            }
+
+            changed |= ImGui::Checkbox(
+                "Auto fit",
+                &m_psfSettings.autoFit);
+
+            float field =
+                static_cast<float>(m_psfSettings.fieldWidth);
+
+            if (ImGui::SliderFloat(
+                m_psfSettings.autoFit
+                ? "Minimum width (mm)"
+                : "Field width (mm)",
+                &field,
+                0.001f,
+                200.0f,
+                "%.3f",
+                ImGuiSliderFlags_Logarithmic |
+                ImGuiSliderFlags_AlwaysClamp))
+            {
+                m_psfSettings.fieldWidth = field;
+                changed = true;
+            }
+
+            if (!m_psfSettings.autoFit)
+            {
+                double centerX = m_psfSettings.center.x;
+                double centerY = m_psfSettings.center.y;
+
+                if (
+                    ImGui::InputDouble("Center X (mm)", &centerX) &&
+                    std::isfinite(centerX))
+                {
+                    m_psfSettings.center.x = centerX;
+                    changed = true;
+                }
+
+                if (
+                    ImGui::InputDouble("Center Y (mm)", &centerY) &&
+                    std::isfinite(centerY))
+                {
+                    m_psfSettings.center.y = centerY;
+                    changed = true;
+                }
+            }
+
+            changed |= ImGui::Checkbox(
+                "Normalize peak",
+                &m_psfSettings.normalizePeak);
+
+            float exposure =
+                static_cast<float>(m_psfSettings.exposure);
+
+            if (ImGui::SliderFloat(
+                "Display exposure",
+                &exposure,
+                0.01f,
+                100.0f,
+                "%.2f",
+                ImGuiSliderFlags_Logarithmic |
+                ImGuiSliderFlags_AlwaysClamp))
+            {
+                m_psfSettings.exposure = exposure;
+                changed = true;
+            }
+
+            if (changed)
+                ++m_psfSettingsVersion;
+
             const bool hasImage =
                 m_psfTraceTexture != 0 &&
                 m_psfTraceWidth > 0 &&

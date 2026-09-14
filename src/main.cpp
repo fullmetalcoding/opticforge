@@ -14,6 +14,7 @@
 #include "renderer/OrbitCameraController.h"
 #include "renderer/ShaderManager.h"
 #include "renderer/RenderSystem.h"
+#include "renderer/PsfTextureRenderer.h"
 #include "raytracer/TraceController.h"
 #include "telescope/TelescopeProject.h"
 #include "ui/UI.h"
@@ -235,6 +236,10 @@ int main(int, char**)
 
 	opticforge::raytracer::TraceController traceController;
 	opticforge::raytracer::TraceSettings traceSettings;
+	opticforge::renderer::PsfTextureRenderer psfRenderer;
+
+	std::uint64_t displayedPsfTraceVersion = 0;
+	std::uint64_t displayedPsfSettingsVersion = 0;
 
 	// ------------------------------------------------------------
 	// Render system
@@ -394,6 +399,35 @@ int main(int, char**)
 
 			displayedTraceVersion = traceController.resultVersion();
 		}
+
+		if (
+			main_ui.showPsf() &&
+			(
+				traceController.resultVersion() !=
+				displayedPsfTraceVersion ||
+				main_ui.psfSettingsVersion() !=
+				displayedPsfSettingsVersion
+				))
+		{
+			if (const auto* completed = traceController.latestResult())
+			{
+				psfRenderer.render(
+					completed->result,
+					completed->observationPlane,
+					main_ui.psfSettings());
+
+				main_ui.setPsfTraceTexture(
+					psfRenderer.texture(),
+					psfRenderer.width(),
+					psfRenderer.height());
+
+				displayedPsfTraceVersion =
+					traceController.resultVersion();
+
+				displayedPsfSettingsVersion =
+					main_ui.psfSettingsVersion();
+			}
+		}
 		ImGui::Render();
 
 		// --------------------------------------------------------
@@ -530,7 +564,7 @@ int main(int, char**)
 	ImGui_ImplSDL3_Shutdown();
 	ImPlot::DestroyContext();
 	ImGui::DestroyContext();
-
+	psfRenderer.release();
 	SDL_GL_DestroyContext(gl);
 	SDL_DestroyWindow(window);
 	SDL_Quit();

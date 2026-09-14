@@ -1,7 +1,9 @@
 #pragma once
 #include "optics/Ray.h"
 #include "optics/SurfaceHit.h"
+#include "telescope/TelescopePrimitives.h"
 #include <optional>
+
 
 namespace opticforge::raytracer {
 
