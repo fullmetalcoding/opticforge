@@ -3,6 +3,7 @@ namespace opticforge::telescope {
     void TelescopeProject::clearProject()
     {
         m_primitives.clear();
+        m_nextPrimitive = 0; 
 
         // Launch pupil: 500 mm diameter, launching toward world +Z.
         m_launchPupil = LaunchPupil{};

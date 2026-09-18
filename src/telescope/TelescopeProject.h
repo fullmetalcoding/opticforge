@@ -2,6 +2,11 @@
 
 #include "TelescopePrimitives.h"
 
+namespace opticforge::project
+{
+	class ProjectSerializer;
+}
+
 namespace opticforge::telescope
 {
 	class TelescopeProject
@@ -10,14 +15,14 @@ namespace opticforge::telescope
 
 		const std::vector<PrimitiveRecord>& primitives() const
 		{
-			return m_primitives; 
+			return m_primitives;
 		}
 		void clearProject();
 
 		TelescopeProject() {
-			clearProject(); 
+			clearProject();
 		}
-		
+
 		TelescopePrimitive*
 			findPrimitive(PrimitiveId id)
 		{
@@ -47,11 +52,11 @@ namespace opticforge::telescope
 
 			return true;
 		}
-		PrimitiveId addPrimitive(TelescopePrimitive primitive) 
+		PrimitiveId addPrimitive(TelescopePrimitive primitive)
 		{
-			PrimitiveRecord newRecord{ ++m_nextPrimitive, primitive };
-			m_primitives.push_back(newRecord);
-			return newRecord.id;
+			PrimitiveRecord newRecord{ ++m_nextPrimitive, std::move(primitive) };
+			m_primitives.push_back(std::move( newRecord));
+			return m_primitives.back().id;
 
 		}
 		const LaunchPupil& getLaunchPupil() const {
@@ -62,15 +67,25 @@ namespace opticforge::telescope
 			m_launchPupil = pupil;
 		}
 		const ObservationPlane& getObservationPlane() const {
-			return m_observationPlane; 
+			return m_observationPlane;
 		}
+
+		// Call TraceController::invalidate() after changing the observation plane.
+		void setObservationPlane(const ObservationPlane& obsPlane) {
+			m_observationPlane = obsPlane;
+		}
+
 	protected:
 		std::vector<PrimitiveRecord> m_primitives;
-		PrimitiveId m_nextPrimitive = 1; 
+		// ID 0 is reserved for the atomic observation plane.
+		// addPrimitive() pre-increments this counter, so the first
+		// ordinary primitive gets ID 1.
+		PrimitiveId m_nextPrimitive = 0;
 
 		LaunchPupil m_launchPupil;
-		ObservationPlane m_observationPlane; 
-
+		ObservationPlane m_observationPlane;
+	private:
+		friend class opticforge::project::ProjectSerializer;
 
 	};
 }

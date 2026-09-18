@@ -236,6 +236,29 @@ namespace opticforge::raytracer {
 							closestT = worldHit.t;
 							closest = candidate;
 						};
+					const auto acceptAbsorbingHit =
+						[&](const optics::SurfaceHit& worldHit)
+						{
+							if (!std::isfinite(worldHit.t)
+								|| worldHit.t <= minHitDistance
+								|| worldHit.t >= closestT)
+							{
+								return;
+							}
+
+							RayIntersection candidate{};
+
+							candidate.primitiveId = record.id;
+							candidate.hit = worldHit;
+
+							candidate.behavior =
+								IntersectionBehavior::Absorb;
+
+							candidate.surface = nullptr;
+
+							closestT = worldHit.t;
+							closest = candidate;
+						};
 
 					if constexpr (
 						std::is_same_v<Primitive, telescope::Lens>)
@@ -253,7 +276,15 @@ namespace opticforge::raytracer {
 					}
 					else if constexpr (
 						std::is_same_v<Primitive, telescope::Mirror>
-						|| std::is_same_v<Primitive, telescope::Detector>)
+						)
+					{
+						testSurface(
+							primitive.surface,
+							glm::dvec3(0.0));
+
+					}
+					else if constexpr (
+						std::is_same_v<Primitive, telescope::Detector>)
 					{
 						testSurface(
 							primitive.surface,
@@ -312,6 +343,13 @@ namespace opticforge::raytracer {
 		const optics::OpticalRay& incoming,
 		const RayIntersection& intersection) const
 	{
+		if (intersection.behavior == IntersectionBehavior::Absorb)
+		{
+			return {
+				std::nullopt,
+				RayTermination::Absorbed
+			};
+		}
 		if (!intersection.surface
 			|| !isFinite(intersection.hit.position)
 			|| !isValidDirection(intersection.hit.normal)

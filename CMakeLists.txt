@@ -39,6 +39,7 @@ set(IMGUI_TAG     "v1.91.5-docking")
 set(IMPLOT_TAG    "v0.16")
 set(JSON_TAG      "v3.11.3")
 set(GLM_TAG       "1.0.3")
+set(JSON_SCHEMA_VALIDATOR_TAG "2.4.0")
 
 
 include(FetchContent)
@@ -88,6 +89,23 @@ FetchContent_Declare(json
     GIT_TAG        ${JSON_TAG}
     GIT_SHALLOW    TRUE)
 
+    
+# --- JSON Schema Validator ----------------------------------------------------
+# JSON Schema validation for OpticForge project files.
+#
+# This library uses nlohmann/json internally. Since the nlohmann_json target
+# already exists in this project, it will reuse our pinned version rather than
+# fetching another copy.
+set(JSON_VALIDATOR_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+set(JSON_VALIDATOR_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(JSON_VALIDATOR_INSTALL        OFF CACHE BOOL "" FORCE)
+set(JSON_VALIDATOR_SHARED_LIBS    OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(json_schema_validator
+    GIT_REPOSITORY https://github.com/pboettch/json-schema-validator.git
+    GIT_TAG        ${JSON_SCHEMA_VALIDATOR_TAG}
+    GIT_SHALLOW    TRUE)
+
 
 # --- GLM ----------------------------------------------------------------------
 # Header-only mathematics library used by the renderer/camera code.
@@ -104,7 +122,7 @@ FetchContent_Declare(glm
 set(_opticforge_saved_policy_min "${CMAKE_POLICY_VERSION_MINIMUM}")
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
-FetchContent_MakeAvailable(SDL3 glew imgui implot json glm)
+FetchContent_MakeAvailable(SDL3 glew imgui implot json json_schema_validator glm)
 
 if(_opticforge_saved_policy_min STREQUAL "")
     unset(CMAKE_POLICY_VERSION_MINIMUM)
@@ -169,6 +187,9 @@ set(OPTICFORGE_SOURCES
     src/renderer/PsfTextureRenderer.cpp
     src/renderer/RayPathRenderer.cpp
     src/renderer/RayPathGeometry.cpp
+    src/project/ProjectSerializer.cpp
+    src/project/ProjectIO.cpp
+    src/project/ProjectController.cpp
 )
 
 set(OPTICFORGE_SHADERS
@@ -186,8 +207,44 @@ set(OPTICFORGE_SHADERS
 
 source_group("Shaders" FILES ${OPTICFORGE_SHADERS})
 
+# -----------------------------------------------------------------------------
+# Embedded OpticForge project schema
+# -----------------------------------------------------------------------------
+
+set(OPTICFORGE_PROJECT_SCHEMA_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/project-schema.json"
+)
+
+set(OPTICFORGE_GENERATED_DIR
+    "${CMAKE_CURRENT_BINARY_DIR}/generated"
+)
+
+file(MAKE_DIRECTORY "${OPTICFORGE_GENERATED_DIR}")
+
+# Read the authoritative JSON schema.
+file(READ
+    "${OPTICFORGE_PROJECT_SCHEMA_FILE}"
+    OPTICFORGE_PROJECT_SCHEMA
+)
+
+# project-schema.json is consumed through file(READ), so explicitly tell CMake
+# that changing it requires reconfiguration.
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${OPTICFORGE_PROJECT_SCHEMA_FILE}"
+)
+
+# Generate a C++ source file containing the schema.
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbeddedProjectSchema.cpp.in"
+    "${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp"
+    @ONLY
+)
+set(OPTICFORGE_GENERATED_SOURCES ${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp)
 # Add source to this project's executable.
-add_executable (opticforge ${OPTICFORGE_SOURCES} ${OPTICFORGE_SHADERS})
+add_executable (opticforge ${OPTICFORGE_SOURCES} ${OPTICFORGE_SHADERS} ${OPTICFORGE_GENERATED_SOURCES})
 
 target_compile_features(opticforge PRIVATE cxx_std_17)
 
@@ -202,6 +259,7 @@ target_link_libraries(opticforge PRIVATE
     imgui
     implot
     nlohmann_json::nlohmann_json
+    nlohmann_json_schema_validator::validator
     glm::glm
 )
 

@@ -1,0 +1,531 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpticForge Project",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "project"
+  ],
+  "properties": {
+    "format": {
+      "const": "OpticForgeProject"
+    },
+    "version": {
+      "const": 1
+    },
+    "project": {
+      "$ref": "#/definitions/telescopeProject"
+    }
+  },
+  "definitions": {
+    "vec2": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "vec3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "quaternion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "w",
+        "x",
+        "y",
+        "z"
+      ],
+      "properties": {
+        "w": {
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        }
+      },
+      "not": {
+        "properties": {
+          "w": {
+            "const": 0
+          },
+          "x": {
+            "const": 0
+          },
+          "y": {
+            "const": 0
+          },
+          "z": {
+            "const": 0
+          }
+        },
+        "required": [
+          "w",
+          "x",
+          "y",
+          "z"
+        ]
+      }
+    },
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "position",
+        "rotation"
+      ],
+      "properties": {
+        "position": {
+          "$ref": "#/definitions/vec3"
+        },
+        "rotation": {
+          "$ref": "#/definitions/quaternion"
+        }
+      }
+    },
+    "planeGeometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "plane"
+        }
+      }
+    },
+    "conicGeometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "radiusOfCurvature",
+        "conicConstant"
+      ],
+      "properties": {
+        "type": {
+          "const": "conic"
+        },
+        "radiusOfCurvature": {
+          "type": "number"
+        },
+        "conicConstant": {
+          "type": "number"
+        }
+      }
+    },
+    "surfaceGeometry": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/planeGeometry"
+        },
+        {
+          "$ref": "#/definitions/conicGeometry"
+        }
+      ]
+    },
+    "circularAperture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "radius"
+      ],
+      "properties": {
+        "type": {
+          "const": "circular"
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "annularAperture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "innerRadius",
+        "outerRadius"
+      ],
+      "properties": {
+        "type": {
+          "const": "annular"
+        },
+        "innerRadius": {
+          "type": "number",
+          "minimum": 0
+        },
+        "outerRadius": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "rectangularAperture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "type": {
+          "const": "rectangular"
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "aperture": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/circularAperture"
+        },
+        {
+          "$ref": "#/definitions/annularAperture"
+        },
+        {
+          "$ref": "#/definitions/rectangularAperture"
+        }
+      ]
+    },
+    "refractiveInterface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "negativeSideMaterial",
+        "positiveSideMaterial"
+      ],
+      "properties": {
+        "type": {
+          "const": "refractive"
+        },
+        "negativeSideMaterial": {
+          "type": "number"
+        },
+        "positiveSideMaterial": {
+          "type": "number"
+        }
+      }
+    },
+    "reflectiveInterface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "reflectivity"
+      ],
+      "properties": {
+        "type": {
+          "const": "reflective"
+        },
+        "reflectivity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "detectorInterface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "detector"
+        }
+      }
+    },
+    "absorbingInterface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "absorbing"
+        }
+      }
+    },
+    "opticalInterface": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/refractiveInterface"
+        },
+        {
+          "$ref": "#/definitions/reflectiveInterface"
+        },
+        {
+          "$ref": "#/definitions/detectorInterface"
+        },
+        {
+          "$ref": "#/definitions/absorbingInterface"
+        }
+      ]
+    },
+    "opticalSurface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transform",
+        "geometry",
+        "aperture",
+        "interface"
+      ],
+      "properties": {
+        "transform": {
+          "$ref": "#/definitions/transform"
+        },
+        "geometry": {
+          "$ref": "#/definitions/surfaceGeometry"
+        },
+        "aperture": {
+          "$ref": "#/definitions/aperture"
+        },
+        "interface": {
+          "$ref": "#/definitions/opticalInterface"
+        }
+      }
+    },
+    "lens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "transform",
+        "frontSurface",
+        "rearSurface",
+        "centerThickness"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "type": {
+          "const": "lens"
+        },
+        "transform": {
+          "$ref": "#/definitions/transform"
+        },
+        "frontSurface": {
+          "$ref": "#/definitions/opticalSurface"
+        },
+        "rearSurface": {
+          "$ref": "#/definitions/opticalSurface"
+        },
+        "centerThickness": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "mirror": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "transform",
+        "surface",
+        "thickness",
+        "centralHole"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "type": {
+          "const": "mirror"
+        },
+        "transform": {
+          "$ref": "#/definitions/transform"
+        },
+        "surface": {
+          "$ref": "#/definitions/opticalSurface"
+        },
+        "thickness": {
+          "type": "number",
+          "minimum": 0
+        },
+        "centralHole": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "detector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "transform",
+        "surface",
+        "widthPixels",
+        "heightPixels",
+        "pixelPitchUm"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "type": {
+          "const": "detector"
+        },
+        "transform": {
+          "$ref": "#/definitions/transform"
+        },
+        "surface": {
+          "$ref": "#/definitions/opticalSurface"
+        },
+        "widthPixels": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "heightPixels": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "pixelPitchUm": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "primitive": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/lens"
+        },
+        {
+          "$ref": "#/definitions/mirror"
+        },
+        {
+          "$ref": "#/definitions/detector"
+        }
+      ]
+    },
+    "launchPupil": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transform",
+        "aperture",
+        "localDirection"
+      ],
+      "properties": {
+        "transform": {
+          "$ref": "#/definitions/transform"
+        },
+        "aperture": {
+          "$ref": "#/definitions/aperture"
+        },
+        "localDirection": {
+          "$ref": "#/definitions/directionVec3"
+        }
+      }
+    },
+    "observationPlane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transform",
+        "surface",
+        "displaySize",
+        "infiniteExtent",
+        "positiveCrossingOnly"
+      ],
+      "properties": {
+        "transform": {
+          "$ref": "#/definitions/transform"
+        },
+        "surface": {
+          "$ref": "#/definitions/opticalSurface"
+        },
+        "displaySize": {
+          "$ref": "#/definitions/vec2"
+        },
+        "infiniteExtent": {
+          "type": "boolean"
+        },
+        "positiveCrossingOnly": {
+          "type": "boolean"
+        }
+      }
+    },
+    "telescopeProject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "launchPupil",
+        "observationPlane",
+        "primitives"
+      ],
+      "properties": {
+        "launchPupil": {
+          "$ref": "#/definitions/launchPupil"
+        },
+        "observationPlane": {
+          "$ref": "#/definitions/observationPlane"
+        },
+        "primitives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/primitive"
+          }
+        }
+      }
+    },
+    "directionVec3": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/vec3"
+        },
+        {
+          "not": {
+            "const": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

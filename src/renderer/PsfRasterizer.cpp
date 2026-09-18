@@ -6,326 +6,348 @@
 
 namespace opticforge::renderer
 {
-    namespace
-    {
-        bool finite(const glm::dvec3& v)
-        {
-            return
-                std::isfinite(v.x) &&
-                std::isfinite(v.y) &&
-                std::isfinite(v.z);
-        }
+	namespace
+	{
+		bool finite(const glm::dvec3& v)
+		{
+			return
+				std::isfinite(v.x) &&
+				std::isfinite(v.y) &&
+				std::isfinite(v.z);
+		}
 
-        struct Sample
-        {
-            glm::dvec2 p;
-            glm::dvec3 color;
-            double weight;
-        };
-    }
+		struct Sample
+		{
+			glm::dvec2 p;
+			glm::dvec3 color;
+			double weight;
+		};
+	}
 
-    PsfImage rasterizePsf(
-        const raytracer::TraceResult& result,
-        const telescope::ObservationPlane& plane,
-        const PsfRenderSettings& s,
-        const PsfColorFunction& color)
-    {
-        if (
-            s.width < 1 ||
-            s.height < 1 ||
-            s.width > 2048 ||
-            s.height > 2048 ||
-            !std::isfinite(s.fieldWidth) ||
-            s.fieldWidth <= 0.0 ||
-            !std::isfinite(s.center.x) ||
-            !std::isfinite(s.center.y) ||
-            !std::isfinite(s.sigmaPixels) ||
-            s.sigmaPixels < 0.25 ||
-            s.sigmaPixels > 32.0 ||
-            !std::isfinite(s.exposure) ||
-            s.exposure < 0.0 ||
-            s.exposure > 1e6)
-        {
-            throw std::invalid_argument(
-                "Invalid PSF render settings");
-        }
+	PsfImage rasterizePsf(
+		const raytracer::TraceResult& result,
+		const telescope::ObservationPlane& plane,
+		const PsfRenderSettings& s,
+		const PsfColorFunction& color)
+	{
+		if (
+			s.width < 1 ||
+			s.height < 1 ||
+			s.width > 2048 ||
+			s.height > 2048 ||
+			!std::isfinite(s.fieldWidth) ||
+			s.fieldWidth <= 0.0 ||
+			!std::isfinite(s.center.x) ||
+			!std::isfinite(s.center.y) ||
+			!std::isfinite(s.sigmaPixels) ||
+			s.sigmaPixels < 0.25 ||
+			s.sigmaPixels > 32.0 ||
+			!std::isfinite(s.exposure) ||
+			s.exposure < 0.0 ||
+			s.exposure > 1e6)
+		{
+			throw std::invalid_argument(
+				"Invalid PSF render settings");
+		}
 
-        const bool white =
-            s.background == PsfBackground::White;
+		const bool white =
+			s.background == PsfBackground::White;
 
-        const glm::dvec3 background(
-            white ? 1.0 : 0.0);
+		const glm::dvec3 background(
+			white ? 1.0 : 0.0);
 
-        std::vector<Sample> samples;
+		std::vector<Sample> samples;
 
-        glm::dvec2 lo(0.0);
-        glm::dvec2 hi(0.0);
+		glm::dvec2 lo(0.0);
+		glm::dvec2 hi(0.0);
 
-        // Collect valid terminal observation-plane hits.
-        for (const auto& path : result.paths)
-        {
-            if (
-                path.termination !=
-                raytracer::RayTermination::DetectorHit ||
-                path.interactions.empty())
-            {
-                continue;
-            }
+		// Collect valid terminal observation-plane hits.
+		for (const auto& path : result.paths)
+		{
+			if (
+				path.termination !=
+				raytracer::RayTermination::DetectorHit ||
+				path.interactions.empty())
+			{
+				continue;
+			}
 
-            const auto& hit = path.interactions.back();
+			const auto& hit = path.interactions.back();
 
-            if (
-                hit.primitiveId != 0 ||
-                !finite(hit.hit.position) ||
-                !std::isfinite(hit.incoming.intensity) ||
-                hit.incoming.intensity <= 0.0)
-            {
-                continue;
-            }
+			if (
+				hit.primitiveId != 0 ||
+				!finite(hit.hit.position) ||
+				!std::isfinite(hit.incoming.intensity) ||
+				hit.incoming.intensity <= 0.0)
+			{
+				continue;
+			}
 
-            const auto local =
-                plane.transform.worldToLocalPoint(
-                    hit.hit.position);
+			const auto local =
+				plane.transform.worldToLocalPoint(
+					hit.hit.position);
 
-            if (!finite(local))
-                continue;
+			if (!finite(local))
+				continue;
 
-            const auto rgb = color
-                ? color(path)
-                : glm::dvec3(white ? 0.0 : 1.0);
+			const auto rgb = color
+				? color(path)
+				: glm::dvec3(white ? 0.0 : 1.0);
 
-            if (!finite(rgb))
-                continue;
+			if (!finite(rgb))
+				continue;
 
-            const glm::dvec2 p(local.x, local.y);
+			const glm::dvec2 p(local.x, local.y);
 
-            if (samples.empty())
-            {
-                lo = hi = p;
-            }
-            else
-            {
-                lo = glm::min(lo, p);
-                hi = glm::max(hi, p);
-            }
+			if (samples.empty())
+			{
+				lo = hi = p;
+			}
+			else
+			{
+				lo = glm::min(lo, p);
+				hi = glm::max(hi, p);
+			}
 
-            samples.push_back({
-                p,
-                glm::clamp(rgb, 0.0, 1.0),
-                hit.incoming.intensity
-                });
-        }
+			samples.push_back({
+				p,
+				glm::clamp(rgb, 0.0, 1.0),
+				hit.incoming.intensity
+				});
+		}
 
-        PsfImage image;
-        image.width = s.width;
-        image.height = s.height;
-        image.center = s.center;
-        image.observationHits = samples.size();
+		PsfImage image;
+		image.width = s.width;
+		image.height = s.height;
+		image.center = s.center;
+		image.observationHits = samples.size();
 
-        double width = s.fieldWidth;
+		double width = s.fieldWidth;
 
-        const double aspect =
-            static_cast<double>(s.width) / s.height;
+		const double aspect =
+			static_cast<double>(s.width) / s.height;
 
-        if (s.autoFit && !samples.empty())
-        {
-            image.center = lo * 0.5 + hi * 0.5;
+		// Automatically center the view on the intensity centroid.
+		if (s.autoCenter && !samples.empty())
+		{
+			glm::dvec2 weightedPosition(0.0);
+			double totalWeight = 0.0;
 
-            width = std::max(
-                width,
-                1.2 * std::max(
-                    hi.x - lo.x,
-                    (hi.y - lo.y) * aspect));
-        }
+			for (const auto& sample : samples)
+			{
+				weightedPosition += sample.p * sample.weight;
+				totalWeight += sample.weight;
+			}
 
-        // Preserve square physical pixels.
-        image.fieldSize = {
-            width,
-            width / aspect
-        };
+			if (totalWeight > 0.0)
+			{
+				image.center =
+					weightedPosition / totalWeight;
+			}
+		}
 
-        if (
-            !std::isfinite(width) ||
-            !std::isfinite(image.fieldSize.y) ||
-            image.fieldSize.y <= 0.0)
-        {
-            throw std::invalid_argument(
-                "PSF field is out of range");
-        }
+		// Automatically enlarge the field enough to contain the spot.
+		// fieldWidth remains the lower bound.
+		if (s.autoFit && !samples.empty())
+		{
+			const double fittedWidth =
+				1.2 * std::max(
+					hi.x - lo.x,
+					(hi.y - lo.y) * aspect);
 
-        const std::size_t count =
-            static_cast<std::size_t>(s.width) * s.height;
+			width = std::max(
+				s.fieldWidth,
+				fittedWidth);
+		}
+	
+		// Preserve square physical pixels.
+		image.fieldSize = {
+			width,
+			width / aspect
+		};
 
-        // XYZ = weighted RGB sum.
-        // W   = total intensity.
-        std::vector<glm::dvec4> accum(
-            count,
-            glm::dvec4(0.0));
+		if (
+			!std::isfinite(width) ||
+			!std::isfinite(image.fieldSize.y) ||
+			image.fieldSize.y <= 0.0)
+		{
+			throw std::invalid_argument(
+				"PSF field is out of range");
+		}
 
-        const auto add = [&](
-            int x,
-            int y,
-            const Sample& sample,
-            double fraction)
-            {
-                const double w =
-                    sample.weight * fraction;
+		const std::size_t count =
+			static_cast<std::size_t>(s.width) * s.height;
 
-                accum[
-                    static_cast<std::size_t>(y) * s.width + x
-                ] += glm::dvec4(sample.color * w, w);
-            };
+		// XYZ = weighted RGB sum.
+		// W   = total intensity.
+		std::vector<glm::dvec4> accum(
+			count,
+			glm::dvec4(0.0));
 
-        const double radius =
-            4.0 * s.sigmaPixels;
+		const auto add = [&](
+			int x,
+			int y,
+			const Sample& sample,
+			double fraction)
+			{
+				const double w =
+					sample.weight * fraction;
 
-        const double divisor =
-            std::sqrt(2.0) * s.sigmaPixels;
+				accum[
+					static_cast<std::size_t>(y) * s.width + x
+				] += glm::dvec4(sample.color * w, w);
+			};
 
-        for (const auto& sample : samples)
-        {
-            const auto pixel =
-                (
-                    (sample.p - image.center) /
-                    image.fieldSize +
-                    0.5
-                    ) * glm::dvec2(s.width, s.height);
+		const double radius =
+			4.0 * s.sigmaPixels;
 
-            if (
-                !std::isfinite(pixel.x) ||
-                !std::isfinite(pixel.y))
-            {
-                continue;
-            }
+		const double divisor =
+			std::sqrt(2.0) * s.sigmaPixels;
 
-            if (s.mark == PsfMark::Point)
-            {
-                if (
-                    pixel.x >= 0 &&
-                    pixel.x < s.width &&
-                    pixel.y >= 0 &&
-                    pixel.y < s.height)
-                {
-                    add(
-                        static_cast<int>(pixel.x),
-                        static_cast<int>(pixel.y),
-                        sample,
-                        1.0);
-                }
+		for (const auto& sample : samples)
+		{
+			const auto pixel =
+				(
+					(sample.p - image.center) /
+					image.fieldSize +
+					0.5
+					) * glm::dvec2(s.width, s.height);
 
-                continue;
-            }
+			if (
+				!std::isfinite(pixel.x) ||
+				!std::isfinite(pixel.y))
+			{
+				continue;
+			}
 
-            if (
-                pixel.x < -radius ||
-                pixel.x > s.width + radius ||
-                pixel.y < -radius ||
-                pixel.y > s.height + radius)
-            {
-                continue;
-            }
+			if (s.mark == PsfMark::Point)
+			{
+				if (
+					pixel.x >= 0 &&
+					pixel.x < s.width &&
+					pixel.y >= 0 &&
+					pixel.y < s.height)
+				{
+					add(
+						static_cast<int>(pixel.x),
+						static_cast<int>(pixel.y),
+						sample,
+						1.0);
+				}
 
-            const int x0 = static_cast<int>(
-                std::max(
-                    0.0,
-                    std::floor(pixel.x - radius)));
+				continue;
+			}
 
-            const int x1 = static_cast<int>(
-                std::min(
-                    static_cast<double>(s.width - 1),
-                    std::floor(pixel.x + radius)));
+			if (
+				pixel.x < -radius ||
+				pixel.x > s.width + radius ||
+				pixel.y < -radius ||
+				pixel.y > s.height + radius)
+			{
+				continue;
+			}
 
-            const int y0 = static_cast<int>(
-                std::max(
-                    0.0,
-                    std::floor(pixel.y - radius)));
+			const int x0 = static_cast<int>(
+				std::max(
+					0.0,
+					std::floor(pixel.x - radius)));
 
-            const int y1 = static_cast<int>(
-                std::min(
-                    static_cast<double>(s.height - 1),
-                    std::floor(pixel.y + radius)));
+			const int x1 = static_cast<int>(
+				std::min(
+					static_cast<double>(s.width - 1),
+					std::floor(pixel.x + radius)));
 
-            // Integrate a normalized Gaussian over each pixel.
-            // This keeps total deposited intensity approximately
-            // constant when sigma changes.
-            std::vector<double> xWeights;
+			const int y0 = static_cast<int>(
+				std::max(
+					0.0,
+					std::floor(pixel.y - radius)));
 
-            for (int x = x0; x <= x1; ++x)
-            {
-                xWeights.push_back(
-                    0.5 * (
-                        std::erf(
-                            (x + 1.0 - pixel.x) / divisor) -
-                        std::erf(
-                            (x - pixel.x) / divisor)
-                        ));
-            }
+			const int y1 = static_cast<int>(
+				std::min(
+					static_cast<double>(s.height - 1),
+					std::floor(pixel.y + radius)));
 
-            for (int y = y0; y <= y1; ++y)
-            {
-                const double fy =
-                    0.5 * (
-                        std::erf(
-                            (y + 1.0 - pixel.y) / divisor) -
-                        std::erf(
-                            (y - pixel.y) / divisor)
-                        );
+			// Integrate a normalized Gaussian over each pixel.
+			// This keeps total deposited intensity approximately
+			// constant when sigma changes.
+			std::vector<double> xWeights;
 
-                for (int x = x0; x <= x1; ++x)
-                {
-                    add(
-                        x,
-                        y,
-                        sample,
-                        xWeights[
-                            static_cast<std::size_t>(x - x0)
-                        ] * fy);
-                }
-            }
-        }
+			for (int x = x0; x <= x1; ++x)
+			{
+				xWeights.push_back(
+					0.5 * (
+						std::erf(
+							(x + 1.0 - pixel.x) / divisor) -
+						std::erf(
+							(x - pixel.x) / divisor)
+						));
+			}
 
-        double peak = 0.0;
+			for (int y = y0; y <= y1; ++y)
+			{
+				const double fy =
+					0.5 * (
+						std::erf(
+							(y + 1.0 - pixel.y) / divisor) -
+						std::erf(
+							(y - pixel.y) / divisor)
+						);
 
-        for (const auto& a : accum)
-            peak = std::max(peak, a.w);
+				for (int x = x0; x <= x1; ++x)
+				{
+					add(
+						x,
+						y,
+						sample,
+						xWeights[
+							static_cast<std::size_t>(x - x0)
+						] * fy);
+				}
+			}
+		}
 
-        image.rgba.resize(count * 4);
+		double peak = 0.0;
 
-        for (std::size_t i = 0; i < count; ++i)
-        {
-            const auto& a = accum[i];
+		for (const auto& a : accum)
+			peak = std::max(peak, a.w);
 
-            glm::dvec3 rgb = background;
+		image.rgba.resize(count * 4);
 
-            if (a.w > 0.0)
-            {
-                const double level = s.normalizePeak
-                    ? a.w / peak
-                    : a.w;
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			const auto& a = accum[i];
 
-                const double coverage =
-                    std::clamp(
-                        level * s.exposure,
-                        0.0,
-                        1.0);
+			glm::dvec3 rgb = background;
 
-                rgb =
-                    background * (1.0 - coverage) +
-                    glm::dvec3(a) / a.w * coverage;
-            }
+			if (a.w > 0.0)
+			{
+				const double level = s.normalizePeak
+					? a.w / peak
+					: a.w;
 
-            for (int c = 0; c < 3; ++c)
-            {
-                image.rgba[i * 4 + c] =
-                    static_cast<std::uint8_t>(
-                        std::lround(
-                            std::clamp(rgb[c], 0.0, 1.0) *
-                            255.0));
-            }
+				const double coverage =
+					std::clamp(
+						level * s.exposure,
+						0.0,
+						1.0);
 
-            image.rgba[i * 4 + 3] = 255;
-        }
+				rgb =
+					background * (1.0 - coverage) +
+					glm::dvec3(a) / a.w * coverage;
+			}
 
-        return image;
-    }
+			for (int c = 0; c < 3; ++c)
+			{
+				image.rgba[i * 4 + c] =
+					static_cast<std::uint8_t>(
+						std::lround(
+							std::clamp(rgb[c], 0.0, 1.0) *
+							255.0));
+			}
+
+			image.rgba[i * 4 + 3] = 255;
+		}
+
+		return image;
+	}
 }

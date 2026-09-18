@@ -24,14 +24,14 @@ namespace opticforge::raytracer {
 			const std::vector<telescope::PrimitiveRecord>& scene,
 			const telescope::ObservationPlane& observationPlane,
 			uint32_t max_interactions = 1000) const;
-	
-
-	private:
 
 		RayPath traceRay(optics::OpticalRay ray,
-			const std::vector<telescope::PrimitiveRecord>& scene, 
+			const std::vector<telescope::PrimitiveRecord>& scene,
 			const telescope::ObservationPlane& observationPlane,
 			uint32_t max_interactions = 1000) const;
+	private:
+
+
 
 		std::optional<RayIntersection> findClosestIntersection(
 			const optics::OpticalRay& ray,
@@ -51,7 +51,7 @@ namespace opticforge::raytracer {
 			const optics::OpticalRay& incoming,
 			const optics::SurfaceHit& hit,
 			const optics::RefractiveInterface& interface) const;
-	
+
 
 	};
 }

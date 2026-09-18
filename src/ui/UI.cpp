@@ -55,8 +55,8 @@ namespace opticforge::ui {
     void UI::drawUI(telescope::TelescopeProject& project,
         bool& bQuit,
         raytracer::TraceController& traceController,
-        raytracer::TraceSettings& traceSettings
-
+        raytracer::TraceSettings& traceSettings,
+        const ProjectCommands& projectCommands
         )
     {
         //Super janky. Refactor later to have an active menu dialog state. 
@@ -70,8 +70,17 @@ namespace opticforge::ui {
                     project.clearProject(); 
                     traceController.invalidate();
                 }
-                if (ImGui::MenuItem("Open project..."));
-                if (ImGui::MenuItem("Save project..."));
+                if (ImGui::MenuItem("Open project...")) {
+                    projectCommands.openProject();
+                }
+                if (ImGui::MenuItem("Save project..."))
+                {
+                    projectCommands.saveProject(); 
+                }
+                if (ImGui::MenuItem("Save project as..."))
+                {
+                    projectCommands.saveProjectAs();
+                }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Exit", "Alt+F4")) bQuit = true;
                 ImGui::EndMenu();
@@ -751,7 +760,10 @@ namespace opticforge::ui {
                     changed = true;
                 }
             }
-
+            changed |= ImGui::Checkbox(
+                "Auto center",
+                &m_psfSettings.autoCenter);
+            
             changed |= ImGui::Checkbox(
                 "Auto fit",
                 &m_psfSettings.autoFit);
@@ -774,28 +786,31 @@ namespace opticforge::ui {
                 changed = true;
             }
 
-            if (!m_psfSettings.autoFit)
+
+
+            if (!m_psfSettings.autoCenter)
             {
                 double centerX = m_psfSettings.center.x;
                 double centerY = m_psfSettings.center.y;
 
-                if (
-                    ImGui::InputDouble("Center X (mm)", &centerX) &&
+                if (ImGui::InputDouble(
+                    "Center X (mm)",
+                    &centerX) &&
                     std::isfinite(centerX))
                 {
                     m_psfSettings.center.x = centerX;
                     changed = true;
                 }
 
-                if (
-                    ImGui::InputDouble("Center Y (mm)", &centerY) &&
+                if (ImGui::InputDouble(
+                    "Center Y (mm)",
+                    &centerY) &&
                     std::isfinite(centerY))
                 {
                     m_psfSettings.center.y = centerY;
                     changed = true;
                 }
             }
-
             changed |= ImGui::Checkbox(
                 "Normalize peak",
                 &m_psfSettings.normalizePeak);

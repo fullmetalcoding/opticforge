@@ -85,12 +85,12 @@ namespace opticforge::ui
                 auto pupil = project.getLaunchPupil();
                 auto position = pupil.transform.position();
                 auto rotation = pupil.transform.eulerDegrees();
-                bool moved = ImGui::InputDouble("Position X (mm)", &position.x, 1, 10, "%.6f");
-                moved |= ImGui::InputDouble("Position Y (mm)", &position.y, 1, 10, "%.6f");
-                moved |= ImGui::InputDouble("Position Z (mm)", &position.z, 1, 10, "%.6f");
-                bool rotated = ImGui::InputDouble("Rotation X (deg)", &rotation.x, 0.1, 1, "%.6f");
-                rotated |= ImGui::InputDouble("Rotation Y (deg)", &rotation.y, 0.1, 1, "%.6f");
-                rotated |= ImGui::InputDouble("Rotation Z (deg)", &rotation.z, 0.1, 1, "%.6f");
+                bool moved = ImGui::InputDouble("Position X (mm)##pupil", &position.x, 1, 10, "%.6f");
+                moved |= ImGui::InputDouble("Position Y (mm)##pupil", &position.y, 1, 10, "%.6f");
+                moved |= ImGui::InputDouble("Position Z (mm)##pupil", &position.z, 1, 10, "%.6f");
+                bool rotated = ImGui::InputDouble("Rotation X (deg)##pupil", &rotation.x, 0.1, 1, "%.6f");
+                rotated |= ImGui::InputDouble("Rotation Y (deg)##pupil", &rotation.y, 0.1, 1, "%.6f");
+                rotated |= ImGui::InputDouble("Rotation Z (deg)##pupil", &rotation.z, 0.1, 1, "%.6f");
                 const auto finite = [](const glm::dvec3& v)
                     { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); };
                 bool pupilChanged = false;
@@ -116,6 +116,48 @@ namespace opticforge::ui
                 if (pupilChanged)
                 {
                     project.setLaunchPupil(pupil);
+                    traceChanged = true;
+                }
+            }
+            if (ImGui::CollapsingHeader("Observation Plane", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                
+                auto obsPlane = project.getObservationPlane();
+                auto position = obsPlane.transform.position();
+                auto rotation = obsPlane.transform.eulerDegrees();
+                bool moved = ImGui::InputDouble("Position X (mm)##obsplane", &position.x, 1, 10, "%.6f");
+                moved |= ImGui::InputDouble("Position Y (mm)##obsplane", &position.y, 1, 10, "%.6f");
+                moved |= ImGui::InputDouble("Position Z (mm)##obsplane", &position.z, 1, 10, "%.6f");
+                bool rotated = ImGui::InputDouble("Rotation X (deg)##obsplane", &rotation.x, 0.1, 1, "%.6f");
+                rotated |= ImGui::InputDouble("Rotation Y (deg)##obsplane", &rotation.y, 0.1, 1, "%.6f");
+                rotated |= ImGui::InputDouble("Rotation Z (deg)##obsplane", &rotation.z, 0.1, 1, "%.6f");
+                const auto finite = [](const glm::dvec3& v)
+                    { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); };
+                bool obsPlaneChanged = false;
+                if (moved && finite(position))
+                {
+                    obsPlane.transform.setPosition(position); obsPlaneChanged = true;
+                }
+                if (rotated && finite(rotation))
+                {
+                    obsPlane.transform.setEulerDegrees(rotation); obsPlaneChanged = true;
+                }
+                /*
+                if (const auto* circle = std::get_if<optics::CircularAperture>(&obsPlane.aperture.geometry()))
+                {
+                    double diameter = 2.0 * circle->radius;
+                    if (ImGui::InputDouble("Diameter (mm)", &diameter, 1, 10, "%.6f")
+                        && std::isfinite(diameter) && diameter > 0.0)
+                    {
+                        pupil.aperture = optics::Aperture{ optics::CircularAperture{diameter * 0.5} };
+                        pupilChanged = true;
+                    }
+                }
+                else ImGui::TextDisabled("Diameter editing requires a circular launch pupil.");
+                */
+                if (obsPlaneChanged)
+                {
+                    project.setObservationPlane(obsPlane);
                     traceChanged = true;
                 }
             }

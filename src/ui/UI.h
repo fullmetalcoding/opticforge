@@ -3,10 +3,18 @@
 #include "raytracer/TraceController.h"
 #include "renderer/PsfRasterizer.h"
 #include "renderer/RayPathGeometry.h"
+#include <functional>
 
 
 namespace opticforge::ui
 {
+    struct ProjectCommands
+    {
+        std::function<void()> newProject;
+        std::function<void()> openProject;
+        std::function<void()> saveProject;
+        std::function<void()> saveProjectAs;
+    };
   
     struct AddLensDialogState
     {
@@ -53,7 +61,7 @@ namespace opticforge::ui
 	class UI {
 	public:
         void drawUI(telescope::TelescopeProject& project, bool & bQuit, raytracer::TraceController & control,
-            raytracer::TraceSettings & traceSettings);
+            raytracer::TraceSettings & traceSettings, const ProjectCommands& projectCommands);
         const renderer::RayPathRenderSettings& rayPathSettings() const
         {
             return m_rayPathSettings;

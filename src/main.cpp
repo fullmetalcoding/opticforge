@@ -19,6 +19,7 @@
 #include "raytracer/TraceController.h"
 #include "telescope/TelescopeProject.h"
 #include "ui/UI.h"
+#include "project/ProjectController.h"
 
 #include <iostream>
 using namespace std;
@@ -135,6 +136,33 @@ int main(int, char**)
 	std::uint64_t displayedTraceVersion = 0;
 
 	opticforge::raytracer::TraceController traceController;
+	opticforge::project::ProjectController projectController(
+		window,
+		project,
+		traceController);
+	opticforge::ui::ProjectCommands projectCommands
+	{
+		[&projectController]()
+		{
+			projectController.newProject();
+		},
+
+		[&projectController]()
+		{
+			projectController.openProject();
+		},
+
+		[&projectController]()
+		{
+			projectController.saveProject();
+		},
+
+		[&projectController]()
+		{
+			projectController.saveProjectAs();
+		}
+	};
+
 	opticforge::raytracer::TraceSettings traceSettings;
 	opticforge::renderer::PsfTextureRenderer psfRenderer;
 	opticforge::renderer::RayPathRenderer rayPathRenderer;
@@ -288,10 +316,10 @@ int main(int, char**)
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL3_NewFrame();
 		ImGui::NewFrame();
-		main_ui.drawUI(project, bQuit, traceController, traceSettings);
+		main_ui.drawUI(project, bQuit, traceController, traceSettings, projectCommands);
 		// Each frame:
 		traceController.setResultsNeeded(
-		   main_ui.showPsf() || main_ui.showRays());
+			main_ui.showPsf() || main_ui.showRays());
 
 		traceController.update(project, traceSettings);
 		if (main_ui.showRays() &&
