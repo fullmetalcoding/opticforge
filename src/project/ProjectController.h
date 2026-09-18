@@ -15,10 +15,14 @@ namespace opticforge::project
     class ProjectController
     {
     public:
+        using ProjectReplacedCallback =
+            std::function<void()>;
         ProjectController(
             SDL_Window* window,
             telescope::TelescopeProject& project,
-            raytracer::TraceController& traceController);
+            raytracer::TraceController& traceController,
+            ProjectReplacedCallback onProjectReplaced
+            );
 
         void newProject();
 
@@ -40,6 +44,7 @@ namespace opticforge::project
         telescope::TelescopeProject& m_project;
 
         raytracer::TraceController& m_traceController;
+        ProjectReplacedCallback m_onProjectReplaced;
 
         std::optional<std::filesystem::path>
             m_currentPath;

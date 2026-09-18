@@ -38,11 +38,13 @@ namespace opticforge::project
     ProjectController::ProjectController(
         SDL_Window* window,
         telescope::TelescopeProject& project,
-        raytracer::TraceController& traceController)
+        raytracer::TraceController& traceController,
+        ProjectReplacedCallback onProjectReplaced)
         :
         m_window(window),
         m_project(project),
-        m_traceController(traceController)
+        m_traceController(traceController),
+        m_onProjectReplaced(std::move(onProjectReplaced))
     {
     }
 
@@ -54,6 +56,10 @@ namespace opticforge::project
         m_currentPath.reset();
 
         m_traceController.invalidate();
+        if (m_onProjectReplaced)
+        {
+            m_onProjectReplaced();
+        }
     }
 
 
@@ -230,6 +236,10 @@ namespace opticforge::project
             // previous project.
             //
             m_traceController.invalidate();
+            if (m_onProjectReplaced)
+            {
+                m_onProjectReplaced();
+            }
         }
         catch (const std::exception& e)
         {

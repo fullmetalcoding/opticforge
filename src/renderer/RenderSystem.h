@@ -15,6 +15,10 @@ namespace opticforge
 	class RenderSystem
 	{
 	public:
+		void clearProjectCache()
+		{
+			m_renderObjects.clear();
+		}
 		void setAspectRatio(float aspect)
 		{
 			m_aspectRatio = aspect;

@@ -136,32 +136,7 @@ int main(int, char**)
 	std::uint64_t displayedTraceVersion = 0;
 
 	opticforge::raytracer::TraceController traceController;
-	opticforge::project::ProjectController projectController(
-		window,
-		project,
-		traceController);
-	opticforge::ui::ProjectCommands projectCommands
-	{
-		[&projectController]()
-		{
-			projectController.newProject();
-		},
-
-		[&projectController]()
-		{
-			projectController.openProject();
-		},
-
-		[&projectController]()
-		{
-			projectController.saveProject();
-		},
-
-		[&projectController]()
-		{
-			projectController.saveProjectAs();
-		}
-	};
+	
 
 	opticforge::raytracer::TraceSettings traceSettings;
 	opticforge::renderer::PsfTextureRenderer psfRenderer;
@@ -185,6 +160,41 @@ int main(int, char**)
 		&width,
 		&height);
 	opticforge::RenderSystem renderSys((float)width / (float)height);
+
+	// ------------------------------------------------------------
+	// Project controller
+	// ------------------------------------------------------------
+	opticforge::project::ProjectController projectController(
+		window,
+		project,
+		traceController,
+		[&renderSys]()
+		{
+			renderSys.clearProjectCache();
+		});
+	opticforge::ui::ProjectCommands projectCommands
+	{
+		[&projectController]()
+		{
+			projectController.newProject();
+		},
+
+		[&projectController]()
+		{
+			projectController.openProject();
+		},
+
+		[&projectController]()
+		{
+			projectController.saveProject();
+		},
+
+		[&projectController]()
+		{
+			projectController.saveProjectAs();
+		}
+	};
+
 
 	// ------------------------------------------------------------
 	// Camera
