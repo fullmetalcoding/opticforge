@@ -1,7 +1,7 @@
 ﻿# CMakeList.txt : CMake project for opticforge, include source and define
 # project specific logic here.
 #
-cmake_minimum_required (VERSION 3.21)
+cmake_minimum_required (VERSION 3.28)
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
@@ -90,7 +90,8 @@ set(ONLY_LIBS               ON  CACHE BOOL "" FORCE)
 FetchContent_Declare(glew
     GIT_REPOSITORY https://github.com/Perlmint/glew-cmake.git
     GIT_TAG        ${GLEW_TAG}
-    GIT_SHALLOW    TRUE)
+    GIT_SHALLOW    TRUE
+    EXCLUDE_FROM_ALL)
 
 # --- Dear ImGui + ImPlot ------------------------------------------------------
 # Neither ships a CMakeLists; we declare the targets ourselves below.
@@ -377,6 +378,9 @@ endif()
 # -----------------------------------------------------------------------------
  
 install(TARGETS opticforge RUNTIME DESTINATION .)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/shaders/"
+DESTINATION shaders
+)
  
 # SDL3.dll and anything else CMake knows we link. Vendor SDKs are invisible here
 # by design -- they are loaded at runtime, so CMake has no dependency edge to
