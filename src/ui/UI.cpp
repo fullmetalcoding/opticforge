@@ -2,6 +2,7 @@
 #include "imgui.h"
 #include <cmath>
 #include <type_traits>
+#include <misc/cpp/imgui_stdlib.h>
 
 namespace opticforge::ui {
 	namespace
@@ -158,6 +159,8 @@ namespace opticforge::ui {
 
 		ImGui::TextUnformatted("Lens Geometry");
 		ImGui::Separator();
+		
+		ImGui::InputText("Name", &m_addLensDialog.name); 
 
 		ImGui::InputDouble(
 			"Diameter (mm)",
@@ -384,7 +387,8 @@ namespace opticforge::ui {
 				});
 
 			project.addPrimitive(
-				std::move(lens));
+				std::move(lens),
+				m_addLensDialog.name);
 			control.invalidate();
 
 			ImGui::CloseCurrentPopup();
@@ -551,6 +555,7 @@ namespace opticforge::ui {
 
 		ImGui::TextUnformatted("Position");
 		ImGui::Separator();
+		ImGui::InputText("Name", &m_addMirrorDialog.name);
 
 		ImGui::InputDouble(
 			"X (mm)",
@@ -692,7 +697,7 @@ namespace opticforge::ui {
 				});
 
 			project.addPrimitive(
-				std::move(mirror));
+				std::move(mirror), m_addMirrorDialog.name);
 			control.invalidate();
 
 			ImGui::CloseCurrentPopup();
@@ -928,6 +933,8 @@ namespace opticforge::ui {
 		const telescope::PrimitiveId id =
 			*m_manipulatedPrimitiveId;
 
+		const std::string primitiveName = project.getNameForId(id); 
+
 		telescope::TelescopePrimitive* primitive =
 			project.findPrimitive(id);
 
@@ -996,7 +1003,8 @@ namespace opticforge::ui {
 			ImGui::SameLine();
 
 			ImGui::TextDisabled(
-				"(ID %llu)",
+				"%s (ID %llu)",
+				primitiveName.c_str(),
 				static_cast<unsigned long long>(
 					id));
 
@@ -1169,13 +1177,14 @@ namespace opticforge::ui {
 				ImGuiWindowFlags_AlwaysAutoResize))
 			{
 				ImGui::Text(
-					"Delete %s (ID %llu)?",
+					"Delete %s \"%s\" (ID % llu) ? ",
 					typeName,
+					primitiveName.c_str(),
 					static_cast<unsigned long long>(
 						id));
 
 				ImGui::TextUnformatted(
-					"This cannot currently be undone.");
+					"This cannot be undone.");
 
 				ImGui::Spacing();
 

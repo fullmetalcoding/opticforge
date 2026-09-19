@@ -1,6 +1,7 @@
 #pragma once
 #include "optics/Transform.h"
 #include "optics/OpticalSurface.h"
+#include <string>
 
 namespace opticforge::telescope
 {
@@ -72,5 +73,6 @@ namespace opticforge::telescope
     {
         PrimitiveId id;
         TelescopePrimitive primitive;
+        std::string name;
     };
 }

@@ -579,6 +579,7 @@ namespace opticforge::project
                     record.primitive);
 
             result["id"] = record.id;
+            result["name"] = record.name; 
 
             return result;
         }
@@ -596,8 +597,15 @@ namespace opticforge::project
                     "primitive id 0 is reserved.");
             }
 
+
             const std::string type =
                 value.at("type").get<std::string>();
+
+            std::string name = "Unnamed " + type;
+
+            if (value.contains("name")) {
+                name = value.at("name");
+            }
 
             if (type == "lens")
             {
@@ -621,7 +629,8 @@ namespace opticforge::project
 
                 return {
                     id,
-                    std::move(lens)
+                    std::move(lens),
+                    name
                 };
             }
 
@@ -647,7 +656,8 @@ namespace opticforge::project
 
                 return {
                     id,
-                    std::move(mirror)
+                    std::move(mirror),
+                    name
                 };
             }
 
@@ -674,10 +684,11 @@ namespace opticforge::project
                 detector.pixelPitchUm =
                     value.at(
                         "pixelPitchUm").get<double>();
-
+           
                 return {
                     id,
-                    std::move(detector)
+                    std::move(detector),
+                    name
                 };
             }
 
@@ -685,6 +696,8 @@ namespace opticforge::project
                 "unknown telescope primitive type '" +
                 type +
                 "'.");
+
+            
         }
 
         json serializeLaunchPupil(

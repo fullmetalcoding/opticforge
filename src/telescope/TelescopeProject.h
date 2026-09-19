@@ -65,9 +65,17 @@ namespace opticforge::telescope
 
 			return true;
 		}
-		PrimitiveId addPrimitive(TelescopePrimitive primitive)
+		std::string getNameForId(PrimitiveId id) {
+			for (const auto& record : m_primitives)
+			{
+				if (record.id == id)
+					return record.name;
+			}
+			return ""; 
+		}
+		PrimitiveId addPrimitive(TelescopePrimitive primitive, const std::string name = "" )
 		{
-			PrimitiveRecord newRecord{ ++m_nextPrimitive, std::move(primitive) };
+			PrimitiveRecord newRecord{ ++m_nextPrimitive, std::move(primitive), name};
 			m_primitives.push_back(std::move( newRecord));
 			return m_primitives.back().id;
 

@@ -40,6 +40,7 @@ namespace opticforge::ui
 
         glm::dvec3 positionMm{ 0.0, 0.0, 0.0 };
         glm::dvec3 orientationDegrees{ 0.0, 0.0, 0.0 };
+        std::string name{ "Lens" }; 
     };
     enum class MirrorCurvature
     {
@@ -62,6 +63,7 @@ namespace opticforge::ui
 
         glm::dvec3 positionMm{ 0.0, 0.0, 0.0 };
         glm::dvec3 orientationDegrees{ 0.0, 0.0, 0.0 };
+        std::string name{ "Mirror" }; 
     };
 
 	class UI {
