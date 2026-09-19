@@ -242,7 +242,7 @@ namespace opticforge::raytracer
         Clock::time_point m_lastChange = Clock::now();
 
         // Keep the existing debounce behavior for now.
-        std::chrono::milliseconds m_debounceDelay{ 200 };
+        std::chrono::milliseconds m_debounceDelay{ 75 };
 
         std::size_t m_activeRayCount = 0;
 

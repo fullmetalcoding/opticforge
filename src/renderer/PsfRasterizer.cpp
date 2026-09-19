@@ -67,7 +67,7 @@ namespace opticforge::renderer
 			if (
 				path.termination !=
 				raytracer::RayTermination::DetectorHit ||
-				path.interactions.empty())
+				path.interactions.size() <2)
 			{
 				continue;
 			}

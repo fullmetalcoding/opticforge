@@ -1,6 +1,7 @@
 #include "UI.h"
 #include "imgui.h"
 #include <cmath>
+#include <type_traits>
 
 namespace opticforge::ui {
 	namespace
@@ -56,7 +57,8 @@ namespace opticforge::ui {
 		bool& bQuit,
 		raytracer::TraceController& traceController,
 		raytracer::TraceSettings& traceSettings,
-		const ProjectCommands& projectCommands
+		const ProjectCommands& projectCommands,
+		const SceneCommands& sceneCommands
 	)
 	{
 		//Super janky. Refactor later to have an active menu dialog state. 
@@ -68,9 +70,13 @@ namespace opticforge::ui {
 			if (ImGui::BeginMenu("File")) {
 				if (ImGui::MenuItem("New project...")){
 					projectCommands.newProject();
+					m_showPrimitiveManipulation = false;
+					m_manipulatedPrimitiveId.reset();
 				}
 				if (ImGui::MenuItem("Open project...")) {
 					projectCommands.openProject();
+					m_showPrimitiveManipulation = false;
+					m_manipulatedPrimitiveId.reset();
 				}
 				if (ImGui::MenuItem("Save project..."))
 				{
@@ -134,6 +140,10 @@ namespace opticforge::ui {
 		drawAddLensPopup(project, traceController);
 		drawAddMirrorPopup(project, traceController);
 		drawPsfTraceWindow();
+		drawPrimitiveManipulationWindow(
+			project,
+			traceController,
+			sceneCommands);
 	}
 	void UI::drawAddLensPopup(
 		telescope::TelescopeProject& project, raytracer::TraceController& control)
@@ -902,5 +912,314 @@ namespace opticforge::ui {
 
 		// Required even when Begin() returns false.
 		ImGui::End();
+	}
+	void UI::drawPrimitiveManipulationWindow(
+		telescope::TelescopeProject& project,
+		raytracer::TraceController& control,
+		const SceneCommands& sceneCommands)
+	{
+		if (
+			!m_showPrimitiveManipulation ||
+			!m_manipulatedPrimitiveId)
+		{
+			return;
+		}
+
+		const telescope::PrimitiveId id =
+			*m_manipulatedPrimitiveId;
+
+		telescope::TelescopePrimitive* primitive =
+			project.findPrimitive(id);
+
+		//
+		// The project may have changed underneath the window.
+		//
+		if (primitive == nullptr)
+		{
+			m_showPrimitiveManipulation = false;
+			m_manipulatedPrimitiveId.reset();
+			return;
+		}
+
+		ImGui::SetNextWindowSize(
+			ImVec2(360.0f, 0.0f),
+			ImGuiCond_FirstUseEver);
+
+		bool open =
+			m_showPrimitiveManipulation;
+
+		if (ImGui::Begin(
+			"Primitive manipulation",
+			&open,
+			ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			const char* typeName =
+				std::visit(
+					[](const auto& value) -> const char*
+					{
+						using T =
+							std::decay_t<
+							decltype(value)>;
+
+						if constexpr (
+							std::is_same_v<
+							T,
+							telescope::Lens>)
+						{
+							return "Lens";
+						}
+						else if constexpr (
+							std::is_same_v<
+							T,
+							telescope::Mirror>)
+						{
+							return "Mirror";
+						}
+						else if constexpr (
+							std::is_same_v<
+							T,
+							telescope::Detector>)
+						{
+							return "Detector";
+						}
+						else
+						{
+							return "Primitive";
+						}
+					},
+					*primitive);
+
+			ImGui::Text(
+				"%s",
+				typeName);
+
+			ImGui::SameLine();
+
+			ImGui::TextDisabled(
+				"(ID %llu)",
+				static_cast<unsigned long long>(
+					id));
+
+			optics::Transform* transform =
+				std::visit(
+					[](auto& value)
+					-> optics::Transform*
+					{
+						return &value.transform;
+					},
+					*primitive);
+
+			//
+			// ---------------------------------------------------------
+			// Translation
+			// ---------------------------------------------------------
+			//
+
+			ImGui::Spacing();
+
+			ImGui::TextUnformatted(
+				"Position");
+
+			ImGui::Separator();
+
+			glm::dvec3 position =
+				transform->position();
+
+			bool positionChanged =
+				false;
+
+			positionChanged |=
+				ImGui::InputDouble(
+					"X (mm)",
+					&position.x,
+					0.1,
+					1.0,
+					"%.6f");
+
+			positionChanged |=
+				ImGui::InputDouble(
+					"Y (mm)",
+					&position.y,
+					0.1,
+					1.0,
+					"%.6f");
+
+			positionChanged |=
+				ImGui::InputDouble(
+					"Z (mm)",
+					&position.z,
+					0.1,
+					1.0,
+					"%.6f");
+
+			const bool finitePosition =
+				std::isfinite(position.x) &&
+				std::isfinite(position.y) &&
+				std::isfinite(position.z);
+
+			if (
+				positionChanged &&
+				finitePosition)
+			{
+				transform->setPosition(
+					position);
+
+				control.invalidate();
+			}
+
+			if (!finitePosition)
+			{
+				ImGui::TextDisabled(
+					"Position values must be finite.");
+			}
+
+			//
+			// ---------------------------------------------------------
+			// Rotation
+			// ---------------------------------------------------------
+			//
+
+			ImGui::Spacing();
+
+			ImGui::TextUnformatted(
+				"Orientation");
+
+			ImGui::Separator();
+
+			glm::dvec3 rotation =
+				transform->eulerDegrees();
+
+			bool rotationChanged =
+				false;
+
+			rotationChanged |=
+				ImGui::InputDouble(
+					"Rotation X (deg)",
+					&rotation.x,
+					0.01,
+					0.1,
+					"%.6f");
+
+			rotationChanged |=
+				ImGui::InputDouble(
+					"Rotation Y (deg)",
+					&rotation.y,
+					0.01,
+					0.1,
+					"%.6f");
+
+			rotationChanged |=
+				ImGui::InputDouble(
+					"Rotation Z (deg)",
+					&rotation.z,
+					0.01,
+					0.1,
+					"%.6f");
+
+			const bool finiteRotation =
+				std::isfinite(rotation.x) &&
+				std::isfinite(rotation.y) &&
+				std::isfinite(rotation.z);
+
+			if (
+				rotationChanged &&
+				finiteRotation)
+			{
+				transform->setEulerDegrees(
+					rotation);
+
+				control.invalidate();
+			}
+
+			if (!finiteRotation)
+			{
+				ImGui::TextDisabled(
+					"Rotation values must be finite.");
+			}
+
+			if (ImGui::Button(
+				"Reset orientation"))
+			{
+				transform->setEulerDegrees(
+					glm::dvec3(0.0));
+
+				control.invalidate();
+			}
+
+			//
+			// ---------------------------------------------------------
+			// Delete
+			// ---------------------------------------------------------
+			//
+
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			if (ImGui::Button(
+				"Delete primitive"))
+			{
+				ImGui::OpenPopup(
+					"ConfirmDeletePrimitive");
+			}
+
+			if (ImGui::BeginPopupModal(
+				"ConfirmDeletePrimitive",
+				nullptr,
+				ImGuiWindowFlags_AlwaysAutoResize))
+			{
+				ImGui::Text(
+					"Delete %s (ID %llu)?",
+					typeName,
+					static_cast<unsigned long long>(
+						id));
+
+				ImGui::TextUnformatted(
+					"This cannot currently be undone.");
+
+				ImGui::Spacing();
+
+				if (ImGui::Button(
+					"Delete"))
+				{
+					if (
+						project.removePrimitive(
+							id))
+					{
+						control.invalidate();
+
+						if (
+							sceneCommands.primitiveDeleted)
+						{
+							sceneCommands.primitiveDeleted(
+								id);
+						}
+					}
+
+					m_manipulatedPrimitiveId.reset();
+					m_showPrimitiveManipulation = false;
+
+					ImGui::CloseCurrentPopup();
+				}
+
+				ImGui::SameLine();
+
+				if (ImGui::Button(
+					"Cancel"))
+				{
+					ImGui::CloseCurrentPopup();
+				}
+
+				ImGui::EndPopup();
+			}
+		}
+
+		ImGui::End();
+
+		if (!open)
+		{
+			m_showPrimitiveManipulation = false;
+			m_manipulatedPrimitiveId.reset();
+		}
 	}
 }

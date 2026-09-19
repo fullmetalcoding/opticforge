@@ -22,6 +22,9 @@
 #include "project/ProjectController.h"
 
 #include <iostream>
+#include <algorithm>
+#include <optional>
+#include <utility>
 using namespace std;
 
 static void fatal(const char* what) {
@@ -136,7 +139,7 @@ int main(int, char**)
 	std::uint64_t displayedTraceVersion = 0;
 
 	opticforge::raytracer::TraceController traceController;
-	
+
 
 	opticforge::raytracer::TraceSettings traceSettings;
 	opticforge::renderer::PsfTextureRenderer psfRenderer;
@@ -194,6 +197,15 @@ int main(int, char**)
 			projectController.saveProjectAs();
 		}
 	};
+	opticforge::ui::SceneCommands sceneCommands
+	{
+		[&renderSys](
+			opticforge::telescope::PrimitiveId id)
+		{
+			renderSys.removePrimitiveFromCache(
+				id);
+		}
+	};
 
 
 	// ------------------------------------------------------------
@@ -224,6 +236,28 @@ int main(int, char**)
 	bool bQuit = false;
 	bool leftMouseDown = false;
 	bool rightMouseDown = false;
+	bool leftMouseDragged = false;
+
+	float leftMouseDownX = 0.0f;
+	float leftMouseDownY = 0.0f;
+
+	float mouseX = 0.0f;
+	float mouseY = 0.0f;
+
+	struct PendingSceneClick
+	{
+		bool valid = false;
+		float x = 0.0f;
+		float y = 0.0f;
+	};
+
+	PendingSceneClick pendingSceneClick;
+	constexpr float SceneClickDragThreshold =
+		4.0f;
+	SDL_GetMouseState(
+		&mouseX,
+		&mouseY);
+	bool hoverNeedsUpdate = true;
 	// --- Main loop -----------------------------------------------------------
 	while (!bQuit) {
 		SDL_Event ev;
@@ -239,18 +273,41 @@ int main(int, char**)
 			switch (ev.type) {
 			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 			{
+				mouseX = ev.button.x;
+				mouseY = ev.button.y;
+
 				if (io.WantCaptureMouse)
 					break;
-				if (ev.button.button ==
+
+				if (
+					ev.button.button ==
 					SDL_BUTTON_LEFT)
 				{
 					leftMouseDown = true;
+					leftMouseDragged = false;
+
+					leftMouseDownX =
+						ev.button.x;
+
+					leftMouseDownY =
+						ev.button.y;
+
+					//
+					// Once camera interaction begins, there should
+					// be no mouseover highlight.
+					//
+					renderSys.setHoveredPrimitive(
+						std::nullopt);
 				}
 
-				if (ev.button.button ==
+				if (
+					ev.button.button ==
 					SDL_BUTTON_RIGHT)
 				{
 					rightMouseDown = true;
+
+					renderSys.setHoveredPrimitive(
+						std::nullopt);
 				}
 
 				break;
@@ -258,16 +315,44 @@ int main(int, char**)
 
 			case SDL_EVENT_MOUSE_BUTTON_UP:
 			{
-				if (ev.button.button ==
+				mouseX = ev.button.x;
+				mouseY = ev.button.y;
+
+				if (
+					ev.button.button ==
 					SDL_BUTTON_LEFT)
 				{
+					//
+					// A left click is a selection only if this
+					// button-down actually began in the scene and
+					// did not turn into a camera drag.
+					//
+					if (
+						leftMouseDown &&
+						!leftMouseDragged)
+					{
+						pendingSceneClick.valid =
+							true;
+
+						pendingSceneClick.x =
+							ev.button.x;
+
+						pendingSceneClick.y =
+							ev.button.y;
+					}
+
 					leftMouseDown = false;
+					leftMouseDragged = false;
+
+					hoverNeedsUpdate = true;
 				}
 
-				if (ev.button.button ==
+				if (
+					ev.button.button ==
 					SDL_BUTTON_RIGHT)
 				{
 					rightMouseDown = false;
+					hoverNeedsUpdate = true;
 				}
 
 				break;
@@ -275,8 +360,23 @@ int main(int, char**)
 
 			case SDL_EVENT_MOUSE_MOTION:
 			{
+				mouseX =
+					ev.motion.x;
+
+				mouseY =
+					ev.motion.y;
+
+				hoverNeedsUpdate =
+					true;
+
 				if (io.WantCaptureMouse)
+				{
+					renderSys.setHoveredPrimitive(
+						std::nullopt);
+
 					break;
+				}
+
 				const float dx =
 					ev.motion.xrel;
 
@@ -285,9 +385,39 @@ int main(int, char**)
 
 				if (leftMouseDown)
 				{
+					const float totalDx =
+						ev.motion.x -
+						leftMouseDownX;
+
+					const float totalDy =
+						ev.motion.y -
+						leftMouseDownY;
+
+					const float distanceSquared =
+						totalDx * totalDx +
+						totalDy * totalDy;
+
+					if (
+						distanceSquared >=
+						SceneClickDragThreshold *
+						SceneClickDragThreshold)
+					{
+						leftMouseDragged = true;
+					}
+
 					controller.orbit(
 						dx,
 						dy);
+
+					//
+					// Camera is moving. Do not attempt hover
+					// picking during the drag.
+					//
+					renderSys.setHoveredPrimitive(
+						std::nullopt);
+
+					hoverNeedsUpdate =
+						false;
 				}
 
 				if (rightMouseDown)
@@ -295,6 +425,12 @@ int main(int, char**)
 					controller.pan(
 						dx,
 						dy);
+
+					renderSys.setHoveredPrimitive(
+						std::nullopt);
+
+					hoverNeedsUpdate =
+						false;
 				}
 
 				break;
@@ -326,7 +462,151 @@ int main(int, char**)
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL3_NewFrame();
 		ImGui::NewFrame();
-		main_ui.drawUI(project, bQuit, traceController, traceSettings, projectCommands);
+		//
+// ------------------------------------------------------------
+// Scene mouse picking
+// ------------------------------------------------------------
+//
+
+		int logicalWidth = 0;
+		int logicalHeight = 0;
+
+		int pixelWidth = 0;
+		int pixelHeight = 0;
+
+		SDL_GetWindowSize(
+			window,
+			&logicalWidth,
+			&logicalHeight);
+
+		SDL_GetWindowSizeInPixels(
+			window,
+			&pixelWidth,
+			&pixelHeight);
+
+		ImGuiIO& frameIo =
+			ImGui::GetIO();
+
+		const bool sceneMouseAvailable =
+			!frameIo.WantCaptureMouse &&
+			!leftMouseDown &&
+			!rightMouseDown &&
+			logicalWidth > 0 &&
+			logicalHeight > 0 &&
+			pixelWidth > 0 &&
+			pixelHeight > 0;
+
+		auto logicalToFramebuffer =
+			[&](float x, float y)
+			{
+				const double scaleX =
+					static_cast<double>(
+						pixelWidth) /
+					static_cast<double>(
+						logicalWidth);
+
+				const double scaleY =
+					static_cast<double>(
+						pixelHeight) /
+					static_cast<double>(
+						logicalHeight);
+
+				int px =
+					static_cast<int>(
+						x * scaleX);
+
+				int py =
+					static_cast<int>(
+						y * scaleY);
+
+				px =
+					std::clamp(
+						px,
+						0,
+						pixelWidth - 1);
+
+				py =
+					std::clamp(
+						py,
+						0,
+						pixelHeight - 1);
+
+				return
+					std::pair<int, int>(
+						px,
+						py);
+			};
+		if (!sceneMouseAvailable)
+		{
+			renderSys.setHoveredPrimitive(
+				std::nullopt);
+		}
+		else if (hoverNeedsUpdate)
+		{
+			const auto [pixelX, pixelY] =
+				logicalToFramebuffer(
+					mouseX,
+					mouseY);
+
+			renderSys.setAspectRatio(
+				static_cast<float>(
+					pixelWidth) /
+				static_cast<float>(
+					pixelHeight));
+
+			const auto hovered =
+				renderSys.pickPrimitive(
+					project,
+					camera,
+					pixelX,
+					pixelY,
+					pixelWidth,
+					pixelHeight);
+
+			renderSys.setHoveredPrimitive(
+				hovered);
+
+			hoverNeedsUpdate =
+				false;
+		}
+		if (
+			pendingSceneClick.valid &&
+			sceneMouseAvailable)
+		{
+			const auto [pixelX, pixelY] =
+				logicalToFramebuffer(
+					pendingSceneClick.x,
+					pendingSceneClick.y);
+
+			const auto clicked =
+				renderSys.pickPrimitive(
+					project,
+					camera,
+					pixelX,
+					pixelY,
+					pixelWidth,
+					pixelHeight);
+
+			if (clicked)
+			{
+				main_ui.openPrimitiveManipulation(
+					*clicked);
+			}
+
+			pendingSceneClick.valid =
+				false;
+		}
+		else if (
+			pendingSceneClick.valid &&
+			!sceneMouseAvailable)
+		{
+			//
+			// Don't carry a stale click into a later frame.
+			//
+			pendingSceneClick.valid =
+				false;
+		}
+		main_ui.drawUI(project, bQuit, traceController, traceSettings, projectCommands, sceneCommands);
 		// Each frame:
 		traceController.setResultsNeeded(
 			main_ui.showPsf() || main_ui.showRays());

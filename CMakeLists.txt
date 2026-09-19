@@ -12,6 +12,29 @@ endif()
 set(OPTICFORGE_VERSION "0.1.0")
 set(OPTICFORGE_VERSION_FULL "0.1.0-nogit")
 
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --dirty --always
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        OUTPUT_VARIABLE  OPTICFORGE_GIT_DESCRIBE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+    if(OPENMEI_GIT_DESCRIBE)
+        set(OPTICFORGE_VERSION_FULL "${OPTICFORGE_GIT_DESCRIBE}")
+        # v1.2.3 / v1.2.3-4-gabcdef / v1.2.3-dirty  ->  1.2.3
+        if(OPTICFORGE_GIT_DESCRIBE MATCHES "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)")
+            set(OPTICFORGE_VERSION "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+        else()
+            # describe fell back to a bare commit hash: no tag is reachable.
+            message(STATUS "No version tag reachable; using ${OPTICFORGE_VERSION}")
+        endif()
+    endif()
+endif()
+
+message(STATUS "OpticForge version: ${OPTICFORGE_VERSION} (${OPTICFORGE_VERSION_FULL})")
+
+
 project (OpticForge
    VERSION ${OPTICFORGE_VERSION}
    LANGUAGES CXX)
@@ -187,9 +210,11 @@ set(OPTICFORGE_SOURCES
     src/renderer/PsfTextureRenderer.cpp
     src/renderer/RayPathRenderer.cpp
     src/renderer/RayPathGeometry.cpp
+    src/renderer/PickingFrameBuffer.cpp
     src/project/ProjectSerializer.cpp
     src/project/ProjectIO.cpp
     src/project/ProjectController.cpp
+    
 )
 
 set(OPTICFORGE_SHADERS
@@ -203,6 +228,8 @@ set(OPTICFORGE_SHADERS
     src/shaders/mesh.frag
     src/shaders/raypath.vert
     src/shaders/raypath.frag
+    src/shaders/picking.vert
+    src/shaders/picking.frag
 )
 
 source_group("Shaders" FILES ${OPTICFORGE_SHADERS})
@@ -344,3 +371,85 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
 endif()
 
 # TODO: Add tests and install targets if needed.
+# -----------------------------------------------------------------------------
+#  Install and package
+# -----------------------------------------------------------------------------
+ 
+install(TARGETS opticforge RUNTIME DESTINATION .)
+ 
+# SDL3.dll and anything else CMake knows we link. Vendor SDKs are invisible here
+# by design -- they are loaded at runtime, so CMake has no dependency edge to
+# them and they must be handled separately above.
+if(WIN32)
+    install(FILES $<TARGET_RUNTIME_DLLS:opticforge> DESTINATION . OPTIONAL)
+else()
+    # TARGET_RUNTIME_DLLS is Windows-only, but SDL3 is a shared library here too.
+    # Install the target itself so CMake resolves the versioned soname and the
+    # symlink chain -- copying $<TARGET_FILE:SDL3::SDL3> alone gives you
+    # libSDL3.so.0.2.0 with nothing pointing at it.
+    install(TARGETS SDL3-shared
+                LIBRARY DESTINATION lib
+                        COMPONENT opticforge
+                        NAMELINK_SKIP)
+endif()
+
+if(NOT WIN32 AND NOT APPLE)
+    set_target_properties(opticforge PROPERTIES
+        # $ORIGIN is resolved at load time relative to the executable, so the
+        # tree relocates anywhere. The build-tree RPATH CMake adds by default is
+        # an absolute path into the build directory and is useless once shipped.
+        INSTALL_RPATH "$ORIGIN/lib"
+        BUILD_WITH_INSTALL_RPATH FALSE)
+endif()
+ 
+install(FILES
+    "${CMAKE_SOURCE_DIR}/README.md"
+    "${CMAKE_SOURCE_DIR}/LICENSE"
+    DESTINATION . OPTIONAL)
+if(EXISTS "${CMAKE_SOURCE_DIR}/THIRD_PARTY.md")
+    install(FILES "${CMAKE_SOURCE_DIR}/THIRD_PARTY.md" DESTINATION .)
+endif()
+ 
+if(MSVC)
+    # The VC++ runtime, so the installer does not depend on the user already
+    # having the redistributable.
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
+    include(InstallRequiredSystemLibraries)
+endif()
+ 
+set(CPACK_PACKAGE_NAME              "OpticForge")
+set(CPACK_PACKAGE_VENDOR            "OpticForge Project")
+set(CPACK_PACKAGE_VERSION           "${OPTICFORGE_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Open-source optics design software")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "OpticForge")
+set(CPACK_PACKAGE_FILE_NAME
+    "OpticForge-${OPTICFORGE_VERSION_FULL}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+if(EXISTS "${CMAKE_SOURCE_DIR}/LICENSE")
+    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+endif()
+ 
+if(WIN32)
+    # ZIP first: it always works, needs no external tooling, and is what CI can
+    # produce unconditionally. NSIS is added only when makensis is present.
+    set(CPACK_GENERATOR "ZIP")
+    find_program(MAKENSIS_EXECUTABLE NAMES makensis)
+    if(MAKENSIS_EXECUTABLE)
+        list(APPEND CPACK_GENERATOR "NSIS")
+        set(CPACK_NSIS_PACKAGE_NAME       "OpticForge ${OPTICFORGE_VERSION}")
+        set(CPACK_NSIS_DISPLAY_NAME       "OpticForge optics design software")
+        set(CPACK_NSIS_INSTALLED_ICON_NAME "opticforge.exe")
+        set(CPACK_NSIS_MODIFY_PATH        OFF)
+        set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+        set(CPACK_NSIS_CREATE_ICONS_EXTRA
+            "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\OpticForge.lnk' '$INSTDIR\\\\opticforge.exe'")
+        set(CPACK_NSIS_DELETE_ICONS_EXTRA
+            "Delete '$SMPROGRAMS\\\\$START_MENU\\\\OpticForge.lnk'")
+    else()
+        message(STATUS "makensis not found -- ZIP package only")
+    endif()
+else()
+    set(CPACK_GENERATOR "TGZ")
+endif()
+ 
+include(CPack)
+

@@ -34,6 +34,19 @@ namespace opticforge::telescope
 
 			return nullptr;
 		}
+
+		const TelescopePrimitive*
+			findPrimitive(
+				PrimitiveId id) const
+		{
+			for (const auto& record : m_primitives)
+			{
+				if (record.id == id)
+					return &record.primitive;
+			}
+
+			return nullptr;
+		}
 		bool removePrimitive(
 			PrimitiveId id)
 		{

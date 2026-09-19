@@ -8,7 +8,10 @@ namespace opticforge {
 		m_aspectRatio(aspect),
 		m_meshShader("shaders/mesh.vert", "shaders/mesh.frag"),
 		m_planeShader("shaders/plane.vert", "shaders/plane.frag"),
-		m_planeCircShader("shaders/planeCirc.vert", "shaders/planeCirc.frag")
+		m_planeCircShader("shaders/planeCirc.vert", "shaders/planeCirc.frag"),
+		m_pickingShader(
+			"shaders/picking.vert",
+			"shaders/picking.frag")
 	{
 		GLuint emptyVao = 0;
 
@@ -171,12 +174,37 @@ namespace opticforge {
 		m_meshShader.bind(); 
 
 		primitiveSetup(m_meshShader, lens.transform, camera);
-		m_meshShader.setVec3("uBaseColor", { 0.25, 1.0, 1.0 });
-		m_meshShader.setFloat("uOpacity", 0.5);
-		m_meshShader.setFloat("uNormalExaggeration", 1.0);
+		const bool hovered =
+			isHovered(id);
 
-		m_meshShader.setFloat("uAmbientStrength", 0.25);
-		m_meshShader.setFloat("uDiffuseStrength", 0.8);
+		m_meshShader.setVec3(
+			"uBaseColor",
+			hovered
+			? glm::vec3(1.0f, 0.75f, 0.10f)
+			: glm::vec3(0.25f, 1.0f, 1.0f));
+
+		m_meshShader.setFloat(
+			"uOpacity",
+			hovered
+			? 0.80f
+			: 0.50f);
+
+		m_meshShader.setFloat(
+			"uNormalExaggeration",
+			1.0f);
+
+		m_meshShader.setFloat(
+			"uAmbientStrength",
+			hovered
+			? 0.70f
+			: 0.25f);
+
+		m_meshShader.setFloat(
+			"uDiffuseStrength",
+			hovered
+			? 0.80f
+			: 0.80f);
+
 		m_meshShader.setFloat("uSpecularStrength", 0.5);
 		m_meshShader.setFloat("uShininess", 0.9); 
 		m_meshShader.setVec3("uLightDirection", { 0.4, 0.7, -0.6 });
@@ -220,11 +248,29 @@ namespace opticforge {
 		m_meshShader.bind();
 
 		primitiveSetup(m_meshShader, mirror.transform, camera);
-		m_meshShader.setVec3("uBaseColor", { 0.45, 0.48, 0.55});
-		m_meshShader.setFloat("uOpacity", 1.0);
+		const bool hovered =
+			isHovered(id);
 
-		m_meshShader.setFloat("uAmbientStrength", 0.08);
-		m_meshShader.setFloat("uDiffuseStrength", 0.55);
+		m_meshShader.setVec3(
+			"uBaseColor",
+			hovered
+			? glm::vec3(1.0f, 0.75f, 0.10f)
+			: glm::vec3(0.45f, 0.48f, 0.55f));
+
+		m_meshShader.setFloat(
+			"uOpacity",
+			1.0f);
+
+		m_meshShader.setFloat(
+			"uAmbientStrength",
+			hovered
+			? 0.65f
+			: 0.08f);
+
+		m_meshShader.setFloat(
+			"uDiffuseStrength",
+			0.55f);
+
 		m_meshShader.setFloat("uSpecularStrength", 0.85);
 		m_meshShader.setFloat("uShininess", 64.0);
 		m_meshShader.setVec3("uLightDirection", { 0.0, 0.0, -1.0 });
@@ -391,5 +437,274 @@ namespace opticforge {
 				meshData.indices.size());
 
 		return mesh;
+	}
+	void RenderSystem::setPickingPrimitiveId(
+		telescope::PrimitiveId id)
+	{
+		const GLuint low =
+			static_cast<GLuint>(
+				id & 0xffffffffull);
+
+		const GLuint high =
+			static_cast<GLuint>(
+				(id >> 32) & 0xffffffffull);
+
+		glUniform2ui(
+			m_pickingShader.uniformLocation(
+				"uPrimitiveId"),
+			low,
+			high);
+	}
+	void RenderSystem::drawPrimitiveForPicking(
+		telescope::PrimitiveId id,
+		const telescope::Lens& lens,
+		const Camera& camera)
+	{
+		auto& renderObject =
+			getOrCreateLensRenderObject(
+				id,
+				lens);
+
+		m_pickingShader.bind();
+
+		primitiveSetup(
+			m_pickingShader,
+			lens.transform,
+			camera);
+
+		setPickingPrimitiveId(id);
+
+		renderObject.mesh.bind();
+
+		glDrawElements(
+			GL_TRIANGLES,
+			renderObject.mesh.indexCount(),
+			GL_UNSIGNED_INT,
+			nullptr);
+
+		renderObject.mesh.unbind();
+
+		ShaderProgram::unbind();
+	}
+	void RenderSystem::drawPrimitiveForPicking(
+		telescope::PrimitiveId id,
+		const telescope::Mirror& mirror,
+		const Camera& camera)
+	{
+		auto& renderObject =
+			getOrCreateMirrorRenderObject(
+				id,
+				mirror);
+
+		m_pickingShader.bind();
+
+		primitiveSetup(
+			m_pickingShader,
+			mirror.transform,
+			camera);
+
+		setPickingPrimitiveId(id);
+
+		renderObject.mesh.bind();
+
+		glDrawElements(
+			GL_TRIANGLES,
+			renderObject.mesh.indexCount(),
+			GL_UNSIGNED_INT,
+			nullptr);
+
+		renderObject.mesh.unbind();
+
+		ShaderProgram::unbind();
+	}
+
+	std::optional<telescope::PrimitiveId>
+		RenderSystem::pickPrimitive(
+			const telescope::TelescopeProject& project,
+			const Camera& camera,
+			int pixelX,
+			int pixelYFromTop,
+			int framebufferWidth,
+			int framebufferHeight)
+	{
+		if (
+			framebufferWidth <= 0 ||
+			framebufferHeight <= 0)
+		{
+			return std::nullopt;
+		}
+
+		if (
+			pixelX < 0 ||
+			pixelYFromTop < 0 ||
+			pixelX >= framebufferWidth ||
+			pixelYFromTop >= framebufferHeight)
+		{
+			return std::nullopt;
+		}
+
+		m_pickingFramebuffer.ensureSize(
+			framebufferWidth,
+			framebufferHeight);
+
+		//
+		// Preserve enough state that the picking pass remains
+		// independent of the ordinary renderer.
+		//
+		GLint previousFramebuffer = 0;
+		GLint previousViewport[4]{};
+
+		glGetIntegerv(
+			GL_DRAW_FRAMEBUFFER_BINDING,
+			&previousFramebuffer);
+
+		glGetIntegerv(
+			GL_VIEWPORT,
+			previousViewport);
+
+		const GLboolean blendEnabled =
+			glIsEnabled(GL_BLEND);
+
+		const GLboolean cullEnabled =
+			glIsEnabled(GL_CULL_FACE);
+
+		const GLboolean ditherEnabled =
+			glIsEnabled(GL_DITHER);
+
+		const GLboolean depthEnabled =
+			glIsEnabled(GL_DEPTH_TEST);
+
+		const GLboolean sRgbEnabled =
+			glIsEnabled(GL_FRAMEBUFFER_SRGB);
+
+		GLboolean previousDepthMask =
+			GL_TRUE;
+
+		glGetBooleanv(
+			GL_DEPTH_WRITEMASK,
+			&previousDepthMask);
+
+		m_pickingFramebuffer.bindForDrawing();
+
+		glViewport(
+			0,
+			0,
+			framebufferWidth,
+			framebufferHeight);
+
+		glDisable(GL_BLEND);
+		glDisable(GL_DITHER);
+		glDisable(GL_FRAMEBUFFER_SRGB);
+		glDisable(GL_CULL_FACE);
+
+		glEnable(GL_DEPTH_TEST);
+		glDepthMask(GL_TRUE);
+
+		const GLuint clearId[2] =
+		{
+			0xffffffffu,
+			0xffffffffu
+		};
+
+		glClearBufferuiv(
+			GL_COLOR,
+			0,
+			clearId);
+
+		glClear(
+			GL_DEPTH_BUFFER_BIT);
+
+		//
+		// Only ordinary TelescopeProject primitives currently
+		// participate in selection.
+		//
+		// Launch pupil and observation plane can be added later
+		// if we decide they should be editable through this UI.
+		//
+		for (const auto& record : project.primitives())
+		{
+			std::visit(
+				[&](const auto& primitive)
+				{
+					drawPrimitiveForPicking(
+						record.id,
+						primitive,
+						camera);
+				},
+				record.primitive);
+		}
+
+		const telescope::PrimitiveId id =
+			m_pickingFramebuffer.readPixel(
+				pixelX,
+				pixelYFromTop);
+
+		//
+		// Restore GL state.
+		//
+		glBindFramebuffer(
+			GL_FRAMEBUFFER,
+			previousFramebuffer);
+
+		glViewport(
+			previousViewport[0],
+			previousViewport[1],
+			previousViewport[2],
+			previousViewport[3]);
+
+		if (blendEnabled)
+			glEnable(GL_BLEND);
+		else
+			glDisable(GL_BLEND);
+
+		if (cullEnabled)
+			glEnable(GL_CULL_FACE);
+		else
+			glDisable(GL_CULL_FACE);
+
+		if (ditherEnabled)
+			glEnable(GL_DITHER);
+		else
+			glDisable(GL_DITHER);
+
+		if (depthEnabled)
+			glEnable(GL_DEPTH_TEST);
+		else
+			glDisable(GL_DEPTH_TEST);
+
+		if (sRgbEnabled)
+			glEnable(GL_FRAMEBUFFER_SRGB);
+		else
+			glDisable(GL_FRAMEBUFFER_SRGB);
+
+		glDepthMask(
+			previousDepthMask);
+
+		if (
+			id ==
+			PickingFramebuffer::InvalidPrimitiveId)
+		{
+			return std::nullopt;
+		}
+
+		//
+		// Defensive check in case a stale ID somehow reaches
+		// the picking buffer.
+		//
+		if (
+			project.findPrimitive(id) ==
+			nullptr)
+		{
+			return std::nullopt;
+		}
+
+		return id;
+	}
+	void RenderSystem::drawPrimitiveForPicking(
+		telescope::PrimitiveId,
+		const telescope::Detector&,
+		const Camera&)
+	{
+		// Detector rendering has not yet been implemented.
 	}
 }

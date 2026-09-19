@@ -43,6 +43,10 @@ namespace opticforge::raytracer {
 		uint32_t max_interactions) const
 	{
 		RayPath path;
+		path.interactions.reserve(
+			std::min<std::uint32_t>(
+				max_interactions,
+				8));
 		path.initialRay = ray;
 		unsigned int interactions = 0;
 		optics::OpticalRay currentRay = ray;

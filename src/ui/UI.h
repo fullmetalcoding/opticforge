@@ -4,6 +4,7 @@
 #include "renderer/PsfRasterizer.h"
 #include "renderer/RayPathGeometry.h"
 #include <functional>
+#include <optional>
 
 
 namespace opticforge::ui
@@ -14,6 +15,11 @@ namespace opticforge::ui
         std::function<void()> openProject;
         std::function<void()> saveProject;
         std::function<void()> saveProjectAs;
+    };
+    struct SceneCommands
+    {
+        std::function<void(telescope::PrimitiveId)>
+            primitiveDeleted;
     };
   
     struct AddLensDialogState
@@ -61,7 +67,7 @@ namespace opticforge::ui
 	class UI {
 	public:
         void drawUI(telescope::TelescopeProject& project, bool & bQuit, raytracer::TraceController & control,
-            raytracer::TraceSettings & traceSettings, const ProjectCommands& projectCommands);
+            raytracer::TraceSettings & traceSettings, const ProjectCommands& projectCommands, const SceneCommands& sceneCommands);
         const renderer::RayPathRenderSettings& rayPathSettings() const
         {
             return m_rayPathSettings;
@@ -94,6 +100,13 @@ namespace opticforge::ui
             return m_psfSettingsVersion;
         }
 
+        void openPrimitiveManipulation(
+            telescope::PrimitiveId id)
+        {
+            m_manipulatedPrimitiveId = id;
+            m_showPrimitiveManipulation = true;
+        }
+
 	private:
         void drawTraceSettingsWindow(telescope::TelescopeProject& project,
             raytracer::TraceController& control, raytracer::TraceSettings& settings);
@@ -122,5 +135,15 @@ namespace opticforge::ui
         int m_psfTraceHeight = 512;
         renderer::PsfRenderSettings m_psfSettings;
         std::uint64_t m_psfSettingsVersion = 1;
+
+        void drawPrimitiveManipulationWindow(
+            telescope::TelescopeProject& project,
+            raytracer::TraceController& control,
+            const SceneCommands& sceneCommands);
+
+        bool m_showPrimitiveManipulation = false;
+
+        std::optional<telescope::PrimitiveId>
+            m_manipulatedPrimitiveId;
 	};
 }
