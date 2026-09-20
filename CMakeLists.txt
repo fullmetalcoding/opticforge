@@ -200,6 +200,7 @@ set(OPTICFORGE_SOURCES
     src/optics/Aperture.cpp
     src/optics/OpticalSurface.cpp
     src/optics/OpticalInterface.cpp
+    src/optics/SurfaceSeparation.cpp
     src/telescope/TelescopeProject.cpp
     src/ui/UI.cpp
     src/ui/TraceSettingsWindow.cpp

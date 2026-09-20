@@ -3,6 +3,7 @@
 #include <cmath>
 #include <type_traits>
 #include <misc/cpp/imgui_stdlib.h>
+#include <optics/SurfaceSeparation.h>
 
 namespace opticforge::ui {
 	namespace
@@ -344,12 +345,111 @@ namespace opticforge::ui {
 		ImGui::Spacing();
 		ImGui::Separator();
 
+		optics::SurfaceGeometry frontGeometry;
+
+		if (m_addLensDialog.frontPlane)
+		{
+			frontGeometry = optics::PlaneGeometry{};
+		}
+		else
+		{
+			frontGeometry =
+				optics::ConicGeometry{
+					m_addLensDialog.frontRadiusMm,
+					m_addLensDialog.frontConicConstant
+			};
+		}
+
+		optics::SurfaceGeometry rearGeometry;
+
+		if (m_addLensDialog.rearPlane)
+		{
+			rearGeometry = optics::PlaneGeometry{};
+		}
+		else
+		{
+			rearGeometry =
+				optics::ConicGeometry{
+					m_addLensDialog.rearRadiusMm,
+					m_addLensDialog.rearConicConstant
+			};
+		}
+
+		const double outerRadius =
+			m_addLensDialog.diameterMm * 0.5;
+
+		const double innerRadius =
+			m_addLensDialog.centralHoleMm * 0.5;
+
+		const auto requiredSeparation =
+			optics::minimumAxialSeparation(
+				frontGeometry,
+				rearGeometry,
+				innerRadius,
+				outerRadius);
+
+		double minimumThickness = 0.0;
+
+		if (requiredSeparation)
+		{
+			const double clearance =
+				std::max(
+					1.0e-6,
+					m_addLensDialog.diameterMm *
+					1.0e-6);
+
+			minimumThickness =
+				*requiredSeparation +
+				clearance;
+
+			if (m_addLensDialog.thicknessMm <
+				minimumThickness)
+			{
+				m_addLensDialog.thicknessMm =
+					minimumThickness;
+			}
+
+			ImGui::TextDisabled(
+				"Minimum thickness for this geometry: %.6f mm",
+				minimumThickness);
+		}
+
 		const bool valid =
+			std::isfinite(m_addLensDialog.diameterMm) &&
+			std::isfinite(m_addLensDialog.thicknessMm) &&
+			std::isfinite(m_addLensDialog.centralHoleMm) &&
+			std::isfinite(m_addLensDialog.refractiveIndex) &&
+
 			m_addLensDialog.diameterMm > 0.0 &&
 			m_addLensDialog.thicknessMm > 0.0 &&
-			m_addLensDialog.refractiveIndex > 0.0 &&
+
 			m_addLensDialog.centralHoleMm >= 0.0 &&
-			validOrientation(m_addLensDialog.orientationDegrees);
+			m_addLensDialog.centralHoleMm <
+			m_addLensDialog.diameterMm &&
+
+			m_addLensDialog.refractiveIndex > 0.0 &&
+
+			(
+				m_addLensDialog.frontPlane ||
+				m_addLensDialog.frontRadiusMm != 0.0
+				) &&
+
+			(
+				m_addLensDialog.rearPlane ||
+				m_addLensDialog.rearRadiusMm != 0.0
+				) &&
+
+			requiredSeparation.has_value() &&
+
+			validOrientation(
+				m_addLensDialog.orientationDegrees);
+
+		if (!requiredSeparation)
+		{
+			ImGui::TextColored(
+				ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
+				"Surface geometry is not defined over the full aperture!");
+		}
 
 		if (!valid)
 			ImGui::BeginDisabled();
@@ -651,26 +751,203 @@ namespace opticforge::ui {
 		ImGui::Separator();
 
 		//
+// -------------------------------------------------------------------------
+// Geometry validation / minimum substrate thickness
+// -------------------------------------------------------------------------
+//
+
+		const double outerRadius =
+			m_addMirrorDialog.diameterMm * 0.5;
+
+		const double innerRadius =
+			m_addMirrorDialog.centralHoleMm * 0.5;
+
+		//
+		// Construct exactly the same surface geometry that will ultimately
+		// be stored in the mirror.
+		//
+		// Keeping this here means the validation calculation and the actual
+		// primitive construction cannot accidentally use different radius
+		// sign conventions.
+		//
+		optics::SurfaceGeometry mirrorGeometry;
+
+		if (m_addMirrorDialog.surfacePlane)
+		{
+			mirrorGeometry =
+				optics::PlaneGeometry{};
+		}
+		else
+		{
+			double signedRadius =
+				std::abs(
+					m_addMirrorDialog.radiusMm);
+
+			if (m_addMirrorDialog.curvature ==
+				MirrorCurvature::Concave)
+			{
+				signedRadius =
+					-signedRadius;
+			}
+
+			mirrorGeometry =
+				optics::ConicGeometry{
+					signedRadius,
+					m_addMirrorDialog.conicConstant
+			};
+		}
+
+		//
+		// The mirror mesh uses:
+		//
+		//     optical surface: z = sag(r)
+		//     rear surface:    z = thickness
+		//
+		// Therefore we require:
+		//
+		//     thickness > sag(r)
+		//
+		// everywhere across the usable aperture.
+		//
+		// minimumAxialSeparation() calculates the maximum required axial
+		// separation across the complete radial interval.
+		//
+		const auto requiredSeparation =
+			optics::minimumAxialSeparation(
+				mirrorGeometry,
+				optics::SurfaceGeometry{
+					optics::PlaneGeometry{}
+				},
+				innerRadius,
+				outerRadius);
+
+		//
+		// Add a small positive clearance.
+		//
+		// We do not want the optical surface to be merely tangent to the
+		// rear substrate because the renderer ultimately converts mesh
+		// coordinates to float.
+		//
+		double minimumThickness = 0.0;
+
+		if (requiredSeparation.has_value())
+		{
+			const double clearance =
+				std::max(
+					1.0e-6,
+					m_addMirrorDialog.diameterMm *
+					1.0e-6);
+
+			minimumThickness =
+				*requiredSeparation +
+				clearance;
+
+			//
+			// The user is allowed to increase thickness freely, but never
+			// reduce it below the geometrically valid minimum.
+			//
+			if (m_addMirrorDialog.thicknessMm <
+				minimumThickness)
+			{
+				m_addMirrorDialog.thicknessMm =
+					minimumThickness;
+			}
+
+			//
+			// Only show a geometrically meaningful minimum if the optical
+			// sag actually imposes one.
+			//
+			if (*requiredSeparation > 0.0)
+			{
+				ImGui::TextDisabled(
+					"Minimum thickness for this geometry: %.6f mm",
+					minimumThickness);
+			}
+		}
+		else
+		{
+			//
+			// nullopt means one of the requested surface points does not
+			// exist over the requested aperture -- for example a spherical
+			// surface whose aperture exceeds the real domain of the sphere.
+			//
+			ImGui::TextColored(
+				ImVec4(
+					1.0f,
+					0.4f,
+					0.4f,
+					1.0f),
+				"Optical surface is not defined over the full aperture.");
+		}
+
+		//
 		// -------------------------------------------------------------------------
-		// Validation
+		// General input validation
 		// -------------------------------------------------------------------------
 		//
 
 		const bool valid =
+			//
+			// All basic numeric fields must be finite.
+			//
+			std::isfinite(
+				m_addMirrorDialog.diameterMm) &&
+
+			std::isfinite(
+				m_addMirrorDialog.thicknessMm) &&
+
+			std::isfinite(
+				m_addMirrorDialog.centralHoleMm) &&
+
+			std::isfinite(
+				m_addMirrorDialog.radiusMm) &&
+
+			std::isfinite(
+				m_addMirrorDialog.conicConstant) &&
+
+			//
+			// Physical dimensions.
+			//
 			m_addMirrorDialog.diameterMm > 0.0 &&
+
 			m_addMirrorDialog.thicknessMm > 0.0 &&
+
 			m_addMirrorDialog.centralHoleMm >= 0.0 &&
+
+			m_addMirrorDialog.centralHoleMm <
+			m_addMirrorDialog.diameterMm &&
+
+			//
+			// Curved surfaces require a non-zero radius.
+			//
 			(
 				m_addMirrorDialog.surfacePlane ||
 				m_addMirrorDialog.radiusMm != 0.0
 				) &&
-			validOrientation(m_addMirrorDialog.orientationDegrees);
+
+			//
+			// The conic must actually exist over the requested aperture.
+			//
+			requiredSeparation.has_value() &&
+
+			//
+			// Defensive check even though thickness was clamped above.
+			//
+			(
+				!requiredSeparation.has_value() ||
+				m_addMirrorDialog.thicknessMm >
+				*requiredSeparation
+				) &&
+
+			validOrientation(
+				m_addMirrorDialog.orientationDegrees);
 
 		if (!valid)
 		{
 			ImGui::TextDisabled(
-				"Diameter, central hole size, and thickness must be positive, and "
-				"a curved surface must have a non-zero radius.");
+				"Diameter and thickness must be positive; "
+				"the central hole must be smaller than the diameter; "
+				"and curved surfaces must have valid geometry.");
 
 			ImGui::BeginDisabled();
 		}
@@ -694,42 +971,17 @@ namespace opticforge::ui {
 			mirror.thickness =
 				m_addMirrorDialog.thicknessMm;
 
-			const double apertureRadius =
-				m_addMirrorDialog.diameterMm *
-				0.5;
-
-			const double innerRadius =
-				m_addMirrorDialog.centralHoleMm * 0.5;
+			mirror.centralHole =
+				m_addMirrorDialog.centralHoleMm;
 
 			//
-			// Surface geometry.
+			// Reuse the exact geometry that was validated above.
 			//
-			if (m_addMirrorDialog.surfacePlane)
-			{
-				mirror.surface.setGeometry(
-					optics::PlaneGeometry{});
-			}
-			else
-			{
-				double signedRadius =
-					std::abs(m_addMirrorDialog.radiusMm);
-
-				if (m_addMirrorDialog.curvature ==
-					MirrorCurvature::Concave)
-				{
-					signedRadius = -signedRadius;
-				}
-
-
-				mirror.surface.setGeometry(
-					optics::ConicGeometry{
-						signedRadius,
-						m_addMirrorDialog.conicConstant
-					});
-			}
+			mirror.surface.setGeometry(
+				mirrorGeometry);
 
 			//
-			// Finite mirror diameter.
+			// Finite optical aperture.
 			//
 			if (m_addMirrorDialog.centralHoleMm > 0.0)
 			{
@@ -737,7 +989,7 @@ namespace opticforge::ui {
 					optics::Aperture{
 						optics::AnnularAperture{
 							innerRadius,
-							apertureRadius
+							outerRadius
 						}
 					});
 			}
@@ -746,11 +998,10 @@ namespace opticforge::ui {
 				mirror.surface.setAperture(
 					optics::Aperture{
 						optics::CircularAperture{
-							apertureRadius
+							outerRadius
 						}
 					});
 			}
-
 
 			//
 			// Reflective optical boundary.
@@ -763,7 +1014,9 @@ namespace opticforge::ui {
 				});
 
 			project.addPrimitive(
-				std::move(mirror), m_addMirrorDialog.name);
+				std::move(mirror),
+				m_addMirrorDialog.name);
+
 			control.invalidate();
 
 			ImGui::CloseCurrentPopup();
