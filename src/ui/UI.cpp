@@ -490,6 +490,8 @@ namespace opticforge::ui {
 		//
 
 		ImGui::TextUnformatted("Mirror Geometry");
+
+		ImGui::InputText("Name", &m_addMirrorDialog.name);
 		ImGui::Separator();
 
 		ImGui::InputDouble(
@@ -620,7 +622,6 @@ namespace opticforge::ui {
 
 		ImGui::TextUnformatted("Position");
 		ImGui::Separator();
-		ImGui::InputText("Name", &m_addMirrorDialog.name);
 
 		ImGui::InputDouble(
 			"X (mm)",
@@ -843,10 +844,33 @@ namespace opticforge::ui {
 			changed |= ImGui::Checkbox(
 				"Auto center",
 				&m_psfSettings.autoCenter);
-
 			changed |= ImGui::Checkbox(
 				"Auto fit",
 				&m_psfSettings.autoFit);
+
+			if (m_psfSettings.autoFit)
+			{
+				ImGui::SameLine();
+
+				if (
+					m_psfFieldSize.x > 0.0 &&
+					m_psfTraceWidth > 0)
+				{
+					const double actualPixelSizeMicrons =
+						m_psfFieldSize.x *
+						1000.0 /
+						static_cast<double>(m_psfTraceWidth);
+
+					ImGui::TextDisabled(
+						"Actual: %.4f mm  (%.3f um/px)",
+						m_psfFieldSize.x,
+						actualPixelSizeMicrons);
+				}
+				else
+				{
+					ImGui::TextDisabled("Actual: --");
+				}
+			}
 
 			float field =
 				static_cast<float>(m_psfSettings.fieldWidth);

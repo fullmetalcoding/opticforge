@@ -7,6 +7,22 @@ namespace opticforge::renderer
     class PsfTextureRenderer
     {
     public:
+        glm::dvec2 fieldSize() const noexcept
+        {
+            return m_fieldSize;
+        }
+
+        glm::dvec2 center() const noexcept
+        {
+            return m_center;
+        }
+
+        std::size_t observationHits() const noexcept
+        {
+            return m_observationHits;
+        }
+           
+    public:
         PsfTextureRenderer() = default;
         ~PsfTextureRenderer();
 
@@ -48,5 +64,10 @@ namespace opticforge::renderer
 
         int m_width = 0;
         int m_height = 0;
+
+        glm::dvec2 m_fieldSize{ 0.0 };
+        glm::dvec2 m_center{ 0.0 };
+
+        std::size_t m_observationHits = 0;
     };
 }

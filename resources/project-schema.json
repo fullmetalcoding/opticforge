@@ -370,6 +370,10 @@
           "type": "integer",
           "minimum": 1
         },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
         "type": {
           "const": "mirror"
         },
@@ -405,6 +409,10 @@
         "id": {
           "type": "integer",
           "minimum": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
         },
         "type": {
           "const": "detector"

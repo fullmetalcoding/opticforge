@@ -10,6 +10,8 @@
 
 #include "project/EmbeddedProjectSchema.h"
 #include "project/ProjectSerializer.h"
+#include <iostream>
+
 
 namespace opticforge::project
 {
@@ -60,10 +62,12 @@ namespace opticforge::project
             }
             catch (const std::exception& e)
             {
+                std::cerr << "Project schema validation failed: " << e.what() << std::endl;
                 throw std::runtime_error(
                     std::string(
                         "OpticForge project schema validation failed: ") +
                     e.what());
+             
             }
         }
 

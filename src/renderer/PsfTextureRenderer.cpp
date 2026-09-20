@@ -18,7 +18,10 @@ namespace opticforge::renderer
 
         m_texture = 0;
         m_width = 0;
+        m_fieldSize = glm::dvec2(0.0);
+        m_center = glm::dvec2(0.0);
         m_height = 0;
+        m_observationHits = 0; 
     }
 
     void PsfTextureRenderer::render(
@@ -151,5 +154,11 @@ namespace opticforge::renderer
         glPixelStorei(GL_UNPACK_ROW_LENGTH, rowLength);
         glPixelStorei(GL_UNPACK_SKIP_ROWS, skipRows);
         glPixelStorei(GL_UNPACK_SKIP_PIXELS, skipPixels);
+        m_width = image.width;
+        m_height = image.height;
+
+        m_fieldSize = image.fieldSize;
+        m_center = image.center;
+        m_observationHits = image.observationHits;
     }
 }

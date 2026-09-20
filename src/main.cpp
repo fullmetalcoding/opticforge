@@ -653,7 +653,9 @@ int main(int, char**)
 				main_ui.setPsfTraceTexture(
 					psfRenderer.texture(),
 					psfRenderer.width(),
-					psfRenderer.height());
+					psfRenderer.height(), 
+					psfRenderer.fieldSize()
+					);
 
 				displayedPsfTraceVersion =
 					traceController.resultVersion();

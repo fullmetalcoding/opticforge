@@ -80,11 +80,12 @@ namespace opticforge::ui
             m_displayedRays = rays; m_rayPathsTruncated = truncated;
         }
         // The renderer owns this texture and must keep it alive while displayed.
-        void setPsfTraceTexture(unsigned int texture, int width, int height)
+        void setPsfTraceTexture(unsigned int texture, int width, int height, glm::vec2 fieldsize)
         {
             m_psfTraceTexture = texture;
             m_psfTraceWidth = width;
             m_psfTraceHeight = height;
+            m_psfFieldSize = fieldsize; 
         }
         bool showPsf() const {
             return m_showPsfTrace;
@@ -131,7 +132,7 @@ namespace opticforge::ui
         bool m_showPsfTrace = false;
         bool m_showRayPaths = false; 
 
-
+        glm::vec2 m_psfFieldSize{ 0,0 };
         unsigned int m_psfTraceTexture = 0;
         int m_psfTraceWidth = 512;
         int m_psfTraceHeight = 512;
