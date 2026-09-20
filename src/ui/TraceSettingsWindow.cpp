@@ -127,7 +127,7 @@ namespace opticforge::ui
                 auto rotation = obsPlane.transform.eulerDegrees();
                 bool moved = ImGui::InputDouble("Position X (mm)##obsplane", &position.x, 1, 10, "%.6f");
                 moved |= ImGui::InputDouble("Position Y (mm)##obsplane", &position.y, 1, 10, "%.6f");
-                moved |= ImGui::InputDouble("Position Z (mm)##obsplane", &position.z, 1, 10, "%.6f");
+                moved |= ImGui::InputDouble("Position Z (mm)##obsplane", &position.z, 0.1, 10, "%.6f");
                 bool rotated = ImGui::InputDouble("Rotation X (deg)##obsplane", &rotation.x, 0.1, 1, "%.6f");
                 rotated |= ImGui::InputDouble("Rotation Y (deg)##obsplane", &rotation.y, 0.1, 1, "%.6f");
                 rotated |= ImGui::InputDouble("Rotation Z (deg)##obsplane", &rotation.z, 0.1, 1, "%.6f");

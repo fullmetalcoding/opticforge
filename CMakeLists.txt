@@ -41,7 +41,7 @@ project (OpticForge
    
 # Available to the application, so an About box or a log line can report the
 # exact build rather than a number someone remembered to bump.
-add_compile_definitions(OPTICFORGE_VERSION_STRING="${OPTICFORGE_VERSION_FULL}")
+add_compile_definitions(OPTICFORGE_VERSION_STRING="${OPTICFORGE_VERSION}\(${OPTICFORGE_VERSION_FULL}\)")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

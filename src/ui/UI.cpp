@@ -7,6 +7,28 @@
 namespace opticforge::ui {
 	namespace
 	{
+		static void updateFieldWidthFromPixelSize(renderer::PsfRenderSettings& s)
+		{
+			if (s.width <= 0)
+				return;
+
+			s.fieldWidth =
+				s.pixelSizeMicrons *
+				static_cast<double>(s.width) /
+				1000.0;
+		}
+
+		static void updatePixelSizeFromFieldWidth(renderer::PsfRenderSettings& s)
+		{
+			if (s.width <= 0)
+				return;
+
+			s.pixelSizeMicrons =
+				s.fieldWidth *
+				1000.0 /
+				static_cast<double>(s.width);
+		}
+
 		void drawOrientationInputs(
 			const char* id,
 			glm::dvec3& degrees)
@@ -65,6 +87,7 @@ namespace opticforge::ui {
 		//Super janky. Refactor later to have an active menu dialog state. 
 		bool openAddLensPopup = false;
 		bool openAddMirrorPopup = false;
+		bool openAboutPopup = false; 
 
 
 		if (ImGui::BeginMainMenuBar()) {
@@ -127,7 +150,48 @@ namespace opticforge::ui {
 				ImGui::MenuItem("PSF trace...", nullptr, &m_showPsfTrace);
 				ImGui::EndMenu();
 			}
+			if (ImGui::BeginMenu("Help"))
+			{
+				if (ImGui::MenuItem("About OpticForge"))
+				{
+					openAboutPopup = true; 
+				}
+
+				ImGui::EndMenu();
+			}
 			ImGui::EndMainMenuBar();
+		}
+		if (openAboutPopup) {
+			ImGui::OpenPopup("About OpticForge");
+		}
+		if (ImGui::BeginPopupModal(
+			"About OpticForge",
+			nullptr,
+			ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::TextUnformatted("OpticForge");
+			ImGui::Separator();
+
+			ImGui::Text("Version: %s", OPTICFORGE_VERSION_STRING);
+
+#ifdef _DEBUG
+			ImGui::TextUnformatted("Configuration: Debug");
+#else
+			ImGui::TextUnformatted("Configuration: Release");
+#endif
+
+			ImGui::Spacing();
+
+			ImGui::TextUnformatted(
+				"Open-source optical design and ray-tracing software."
+			);
+
+			ImGui::Spacing();
+
+			if (ImGui::Button("Close", ImVec2(120.0f, 0.0f)))
+				ImGui::CloseCurrentPopup();
+
+			ImGui::EndPopup();
 		}
 
 		if (openAddLensPopup) {
@@ -136,6 +200,7 @@ namespace opticforge::ui {
 		else if (openAddMirrorPopup) {
 			ImGui::OpenPopup("AddMirror");
 		}
+
 
 		drawTraceSettingsWindow(project, traceController, traceSettings);
 		drawAddLensPopup(project, traceController);
@@ -785,7 +850,16 @@ namespace opticforge::ui {
 
 			float field =
 				static_cast<float>(m_psfSettings.fieldWidth);
+			if (!m_psfSettings.autoFit) {
+				if (ImGui::InputDouble("Sensor Pixel Size (um)", &m_psfSettings.pixelSizeMicrons,
+					0.01, .1, "%.4f")) {
+					m_psfSettings.pixelSizeMicrons =
+						std::max(m_psfSettings.pixelSizeMicrons, 0.001);
 
+					updateFieldWidthFromPixelSize(m_psfSettings);
+				}
+			}
+			
 			if (ImGui::SliderFloat(
 				m_psfSettings.autoFit
 				? "Minimum width (mm)"
@@ -797,7 +871,9 @@ namespace opticforge::ui {
 				ImGuiSliderFlags_Logarithmic |
 				ImGuiSliderFlags_AlwaysClamp))
 			{
+
 				m_psfSettings.fieldWidth = field;
+				updatePixelSizeFromFieldWidth(m_psfSettings); 
 				changed = true;
 			}
 

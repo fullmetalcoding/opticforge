@@ -37,7 +37,8 @@ namespace opticforge::renderer
 		// Horizontal display width.
 		// With autoFit enabled, this is the minimum fitted width.
 		// With autoFit disabled, this is the exact display width.
-		double fieldWidth = 0.01;
+		double fieldWidth = 1.94048; 
+		double pixelSizeMicrons = 3.79;
 
 		// Used when autoCenter is disabled.
 		glm::dvec2 center{ 0.0 };

@@ -27,7 +27,7 @@ namespace opticforge::renderer
 	PsfImage rasterizePsf(
 		const raytracer::TraceResult& result,
 		const telescope::ObservationPlane& plane,
-		const PsfRenderSettings& s,
+	    const PsfRenderSettings& s,
 		const PsfColorFunction& color)
 	{
 		if (
@@ -158,6 +158,7 @@ namespace opticforge::renderer
 			width = std::max(
 				s.fieldWidth,
 				fittedWidth);
+				
 		}
 	
 		// Preserve square physical pixels.
