@@ -1,9 +1,12 @@
 #include "MirrorMeshGenerator.h"
 
+#include <algorithm>
 #include <cmath>
-#include <numbers>
+#include <cstdint>
 #include <stdexcept>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include "optics/Aperture.h"
 #include "optics/ConicGeometry.h"
@@ -11,16 +14,162 @@
 
 namespace opticforge
 {
-
     namespace
     {
+        constexpr double Pi =
+            3.141592653589793238462643383279502884;
 
-        struct MirrorApertureDimensions
+
+        //
+        // =========================================================================
+        // Aperture type detection
+        // =========================================================================
+        //
+        // These traits deliberately detect aperture capabilities by their
+        // parameter names rather than referring directly to every concrete
+        // aperture type.
+        //
+        // This means that after adding:
+        //
+        //     struct EllipticalAperture
+        //     {
+        //         double radiusX;
+        //         double radiusY;
+        //         ...
+        //     };
+        //
+        // to ApertureGeometry, this file does not need another explicit
+        // EllipticalAperture branch.
+        //
+
+        template<typename T, typename = void>
+        struct HasRadius :
+            std::false_type
         {
-            double innerRadius = 0.0;
-            double outerRadius = 0.0;
         };
 
+        template<typename T>
+        struct HasRadius<
+            T,
+            std::void_t<
+            decltype(
+                std::declval<const T&>().radius)>>
+            : std::true_type
+        {
+        };
+
+
+        template<typename T, typename = void>
+        struct HasInnerOuterRadius :
+            std::false_type
+        {
+        };
+
+        template<typename T>
+        struct HasInnerOuterRadius<
+            T,
+            std::void_t<
+            decltype(
+                std::declval<const T&>().innerRadius),
+            decltype(
+                std::declval<const T&>().outerRadius)>>
+            : std::true_type
+        {
+        };
+
+
+        template<typename T, typename = void>
+        struct HasWidthHeight :
+            std::false_type
+        {
+        };
+
+        template<typename T>
+        struct HasWidthHeight<
+            T,
+            std::void_t<
+            decltype(
+                std::declval<const T&>().width),
+            decltype(
+                std::declval<const T&>().height)>>
+            : std::true_type
+        {
+        };
+
+
+        template<typename T, typename = void>
+        struct HasRadiusXY :
+            std::false_type
+        {
+        };
+
+        template<typename T>
+        struct HasRadiusXY<
+            T,
+            std::void_t<
+            decltype(
+                std::declval<const T&>().radiusX),
+            decltype(
+                std::declval<const T&>().radiusY)>>
+            : std::true_type
+        {
+        };
+
+
+        template<typename>
+        struct DependentFalse :
+            std::false_type
+        {
+        };
+
+
+        //
+        // =========================================================================
+        // Sampled aperture representation
+        // =========================================================================
+        //
+        // The rest of the mesh generator operates entirely on this representation.
+        //
+        // outerBoundary:
+        //     Counter-clockwise boundary of the substrate.
+        //
+        // innerBoundary:
+        //     Optional central hole. It must contain the same number of samples as
+        //     outerBoundary, with corresponding angular/perimeter locations.
+        //
+        // This naturally supports:
+        //
+        //     circle
+        //     annulus
+        //     ellipse
+        //     rectangle
+        //
+        // and can later support other centered/star-shaped apertures simply by
+        // teaching sampleAperture() how to produce these contours.
+        //
+
+        struct SampledAperture
+        {
+            std::vector<glm::dvec2> outerBoundary;
+            std::vector<glm::dvec2> innerBoundary;
+
+            bool hasHole() const noexcept
+            {
+                return !innerBoundary.empty();
+            }
+
+            std::size_t perimeterCount() const noexcept
+            {
+                return outerBoundary.size();
+            }
+        };
+
+
+        //
+        // =========================================================================
+        // Basic optical surface helpers
+        // =========================================================================
+        //
 
         double surfaceSag(
             const optics::SurfaceGeometry& geometry,
@@ -61,47 +210,6 @@ namespace opticforge
         }
 
 
-        MirrorApertureDimensions mirrorApertureDimensions(
-            const optics::Aperture& aperture)
-        {
-            return std::visit(
-                [](const auto& a)
-                -> MirrorApertureDimensions
-                {
-                    using T =
-                        std::decay_t<decltype(a)>;
-
-                    if constexpr (
-                        std::is_same_v<
-                        T,
-                        optics::CircularAperture>)
-                    {
-                        return {
-                            0.0,
-                            a.radius
-                        };
-                    }
-                    else if constexpr (
-                        std::is_same_v<
-                        T,
-                        optics::AnnularAperture>)
-                    {
-                        return {
-                            a.innerRadius,
-                            a.outerRadius
-                        };
-                    }
-                    else
-                    {
-                        throw std::runtime_error(
-                            "MirrorMeshGenerator requires a "
-                            "circular or annular aperture.");
-                    }
-                },
-                aperture.geometry());
-        }
-
-
         glm::vec3 toFloat(
             const glm::dvec3& v)
         {
@@ -109,6 +217,597 @@ namespace opticforge
                 static_cast<float>(v.x),
                 static_cast<float>(v.y),
                 static_cast<float>(v.z));
+        }
+
+
+        double radialDistance(
+            const glm::dvec2& p)
+        {
+            return std::hypot(
+                p.x,
+                p.y);
+        }
+
+
+        double surfaceZAt(
+            const optics::SurfaceGeometry& geometry,
+            const glm::dvec2& point,
+            double thickness)
+        {
+            const double radius =
+                radialDistance(point);
+
+            const double z =
+                surfaceSag(
+                    geometry,
+                    radius);
+
+            if (!std::isfinite(z))
+            {
+                throw std::runtime_error(
+                    "Mirror aperture extends beyond "
+                    "the valid optical surface domain.");
+            }
+
+            //
+            // The substrate convention is:
+            //
+            //     optical face = sag(x, y)
+            //     rear face    = thickness
+            //
+            // They must remain strictly separated.
+            //
+            if (z >= thickness)
+            {
+                throw std::runtime_error(
+                    "Mirror optical surface intersects or passes "
+                    "through the rear substrate surface.");
+            }
+
+            return z;
+        }
+
+
+        //
+        // =========================================================================
+        // Boundary sampling
+        // =========================================================================
+        //
+
+        std::vector<glm::dvec2> sampleEllipse(
+            double radiusX,
+            double radiusY,
+            std::uint32_t segmentCount)
+        {
+            if (
+                !std::isfinite(radiusX) ||
+                !std::isfinite(radiusY) ||
+                radiusX <= 0.0 ||
+                radiusY <= 0.0)
+            {
+                throw std::invalid_argument(
+                    "Ellipse radii must be finite and greater than zero.");
+            }
+
+            segmentCount =
+                std::max<std::uint32_t>(
+                    segmentCount,
+                    3);
+
+            std::vector<glm::dvec2> points;
+
+            points.reserve(
+                segmentCount);
+
+            for (std::uint32_t i = 0;
+                i < segmentCount;
+                ++i)
+            {
+                const double angle =
+                    2.0 *
+                    Pi *
+                    static_cast<double>(i) /
+                    static_cast<double>(
+                        segmentCount);
+
+                points.emplace_back(
+                    radiusX * std::cos(angle),
+                    radiusY * std::sin(angle));
+            }
+
+            return points;
+        }
+
+
+        std::vector<glm::dvec2> sampleRectangle(
+            double width,
+            double height,
+            std::uint32_t requestedSegments)
+        {
+            if (
+                !std::isfinite(width) ||
+                !std::isfinite(height) ||
+                width <= 0.0 ||
+                height <= 0.0)
+            {
+                throw std::invalid_argument(
+                    "Rectangle width and height must be finite "
+                    "and greater than zero.");
+            }
+
+            //
+            // Make every corner an explicit boundary sample.
+            //
+            // requestedSegments=96 therefore becomes 24 samples/edge.
+            //
+            // If requestedSegments is not divisible by four, round upward.
+            //
+            const std::uint32_t segmentsPerEdge =
+                std::max<std::uint32_t>(
+                    1,
+                    (requestedSegments + 3) / 4);
+
+            const double halfWidth =
+                width * 0.5;
+
+            const double halfHeight =
+                height * 0.5;
+
+            std::vector<glm::dvec2> points;
+
+            points.reserve(
+                static_cast<std::size_t>(
+                    segmentsPerEdge) *
+                4);
+
+            //
+            // Walk counter-clockwise.
+            //
+            // Each corner belongs to exactly one edge so there are no duplicate
+            // perimeter vertices.
+            //
+
+            // Bottom: bottom-left -> bottom-right
+            for (std::uint32_t i = 0;
+                i < segmentsPerEdge;
+                ++i)
+            {
+                const double t =
+                    static_cast<double>(i) /
+                    static_cast<double>(
+                        segmentsPerEdge);
+
+                points.emplace_back(
+                    -halfWidth +
+                    width * t,
+                    -halfHeight);
+            }
+
+            // Right: bottom-right -> top-right
+            for (std::uint32_t i = 0;
+                i < segmentsPerEdge;
+                ++i)
+            {
+                const double t =
+                    static_cast<double>(i) /
+                    static_cast<double>(
+                        segmentsPerEdge);
+
+                points.emplace_back(
+                    halfWidth,
+                    -halfHeight +
+                    height * t);
+            }
+
+            // Top: top-right -> top-left
+            for (std::uint32_t i = 0;
+                i < segmentsPerEdge;
+                ++i)
+            {
+                const double t =
+                    static_cast<double>(i) /
+                    static_cast<double>(
+                        segmentsPerEdge);
+
+                points.emplace_back(
+                    halfWidth -
+                    width * t,
+                    halfHeight);
+            }
+
+            // Left: top-left -> bottom-left
+            for (std::uint32_t i = 0;
+                i < segmentsPerEdge;
+                ++i)
+            {
+                const double t =
+                    static_cast<double>(i) /
+                    static_cast<double>(
+                        segmentsPerEdge);
+
+                points.emplace_back(
+                    -halfWidth,
+                    halfHeight -
+                    height * t);
+            }
+
+            return points;
+        }
+
+
+        SampledAperture sampleAperture(
+            const optics::Aperture& aperture,
+            std::uint32_t perimeterSegments)
+        {
+            return std::visit(
+                [perimeterSegments](
+                    const auto& concrete)
+                -> SampledAperture
+                {
+                    using T =
+                        std::decay_t<
+                        decltype(concrete)>;
+
+                    //
+                    // Annular aperture.
+                    //
+                    if constexpr (
+                        HasInnerOuterRadius<T>::value)
+                    {
+                        if (
+                            !std::isfinite(
+                                concrete.innerRadius) ||
+                            !std::isfinite(
+                                concrete.outerRadius) ||
+                            concrete.innerRadius < 0.0 ||
+                            concrete.outerRadius <= 0.0 ||
+                            concrete.innerRadius >=
+                            concrete.outerRadius)
+                        {
+                            throw std::invalid_argument(
+                                "Annular aperture radii are invalid.");
+                        }
+
+                        SampledAperture result;
+
+                        result.outerBoundary =
+                            sampleEllipse(
+                                concrete.outerRadius,
+                                concrete.outerRadius,
+                                perimeterSegments);
+
+                        //
+                        // Treat innerRadius == 0 as an ordinary solid circle.
+                        //
+                        if (concrete.innerRadius > 0.0)
+                        {
+                            result.innerBoundary =
+                                sampleEllipse(
+                                    concrete.innerRadius,
+                                    concrete.innerRadius,
+                                    perimeterSegments);
+                        }
+
+                        return result;
+                    }
+
+                    //
+                    // Elliptical aperture.
+                    //
+                    // This branch automatically becomes active once an
+                    // EllipticalAperture with radiusX/radiusY is added to
+                    // ApertureGeometry.
+                    //
+                    else if constexpr (
+                        HasRadiusXY<T>::value)
+                    {
+                        SampledAperture result;
+
+                        result.outerBoundary =
+                            sampleEllipse(
+                                concrete.radiusX,
+                                concrete.radiusY,
+                                perimeterSegments);
+
+                        return result;
+                    }
+
+                    //
+                    // Rectangular aperture.
+                    //
+                    else if constexpr (
+                        HasWidthHeight<T>::value)
+                    {
+                        SampledAperture result;
+
+                        result.outerBoundary =
+                            sampleRectangle(
+                                concrete.width,
+                                concrete.height,
+                                perimeterSegments);
+
+                        return result;
+                    }
+
+                    //
+                    // Circular aperture.
+                    //
+                    else if constexpr (
+                        HasRadius<T>::value)
+                    {
+                        if (
+                            !std::isfinite(
+                                concrete.radius) ||
+                            concrete.radius <= 0.0)
+                        {
+                            throw std::invalid_argument(
+                                "Circular aperture radius must be finite "
+                                "and greater than zero.");
+                        }
+
+                        SampledAperture result;
+
+                        result.outerBoundary =
+                            sampleEllipse(
+                                concrete.radius,
+                                concrete.radius,
+                                perimeterSegments);
+
+                        return result;
+                    }
+
+                    else
+                    {
+                        static_assert(
+                            DependentFalse<T>::value,
+                            "MirrorMeshGenerator does not know how to "
+                            "sample this aperture geometry.");
+
+                        return {};
+                    }
+                },
+                aperture.geometry());
+        }
+
+
+        //
+        // =========================================================================
+        // Ring construction
+        // =========================================================================
+        //
+
+        glm::dvec2 ringPoint(
+            const SampledAperture& aperture,
+            std::uint32_t ring,
+            std::uint32_t radialSegments,
+            std::size_t perimeterIndex)
+        {
+            const double fraction =
+                static_cast<double>(ring) /
+                static_cast<double>(
+                    radialSegments);
+
+            if (!aperture.hasHole())
+            {
+                //
+                // Solid centered/star-shaped aperture.
+                //
+                // Every interior ring is a scaled copy of the outer boundary.
+                //
+                return
+                    aperture.outerBoundary[
+                        perimeterIndex] *
+                    fraction;
+            }
+
+            //
+            // Aperture with a central hole.
+            //
+            // Interpolate corresponding points from the inner contour to the
+            // outer contour.
+            //
+            const glm::dvec2& inner =
+                aperture.innerBoundary[
+                    perimeterIndex];
+
+            const glm::dvec2& outer =
+                aperture.outerBoundary[
+                    perimeterIndex];
+
+            return
+                inner +
+                (outer - inner) *
+                fraction;
+        }
+
+
+        //
+        // =========================================================================
+        // Wall construction
+        // =========================================================================
+        //
+
+        void appendBoundaryWall(
+            MeshData& mesh,
+            const std::vector<glm::dvec2>& boundary,
+            const optics::SurfaceGeometry& geometry,
+            double thickness,
+            bool innerWall)
+        {
+            if (boundary.size() < 3)
+            {
+                throw std::runtime_error(
+                    "Mirror boundary must contain at least three points.");
+            }
+
+            const std::size_t count =
+                boundary.size();
+
+            //
+            // Deliberately generate four separate vertices per edge rather than
+            // sharing them.
+            //
+            // This produces correct hard edges for rectangles/polygons while
+            // still looking effectively smooth for sufficiently tessellated
+            // circles and ellipses.
+            //
+            for (std::size_t i = 0;
+                i < count;
+                ++i)
+            {
+                const std::size_t next =
+                    (i + 1) %
+                    count;
+
+                const glm::dvec2& p0 =
+                    boundary[i];
+
+                const glm::dvec2& p1 =
+                    boundary[next];
+
+                const glm::dvec2 edge =
+                    p1 - p0;
+
+                const double edgeLength =
+                    std::hypot(
+                        edge.x,
+                        edge.y);
+
+                if (
+                    !std::isfinite(edgeLength) ||
+                    edgeLength <= 0.0)
+                {
+                    throw std::runtime_error(
+                        "Mirror aperture contains a degenerate "
+                        "boundary edge.");
+                }
+
+                //
+                // Boundaries are counter-clockwise.
+                //
+                // For an outer boundary, the outward XY normal is the
+                // clockwise 90-degree rotation:
+                //
+                //     (dx,dy) -> (dy,-dx)
+                //
+                // For a hole, outward from the substrate points in the
+                // opposite direction, into the hole.
+                //
+                glm::dvec2 outward(
+                    edge.y / edgeLength,
+                    -edge.x / edgeLength);
+
+                if (innerWall)
+                    outward = -outward;
+
+                const glm::vec3 wallNormal(
+                    static_cast<float>(
+                        outward.x),
+                    static_cast<float>(
+                        outward.y),
+                    0.0f);
+
+                const double z0 =
+                    surfaceZAt(
+                        geometry,
+                        p0,
+                        thickness);
+
+                const double z1 =
+                    surfaceZAt(
+                        geometry,
+                        p1,
+                        thickness);
+
+                const std::uint32_t base =
+                    static_cast<std::uint32_t>(
+                        mesh.vertices.size());
+
+                //
+                // Front 0
+                //
+                mesh.vertices.push_back(
+                    MeshVertex{
+                        glm::vec3(
+                            static_cast<float>(p0.x),
+                            static_cast<float>(p0.y),
+                            static_cast<float>(z0)),
+                        wallNormal
+                    });
+
+                //
+                // Rear 0
+                //
+                mesh.vertices.push_back(
+                    MeshVertex{
+                        glm::vec3(
+                            static_cast<float>(p0.x),
+                            static_cast<float>(p0.y),
+                            static_cast<float>(thickness)),
+                        wallNormal
+                    });
+
+                //
+                // Front 1
+                //
+                mesh.vertices.push_back(
+                    MeshVertex{
+                        glm::vec3(
+                            static_cast<float>(p1.x),
+                            static_cast<float>(p1.y),
+                            static_cast<float>(z1)),
+                        wallNormal
+                    });
+
+                //
+                // Rear 1
+                //
+                mesh.vertices.push_back(
+                    MeshVertex{
+                        glm::vec3(
+                            static_cast<float>(p1.x),
+                            static_cast<float>(p1.y),
+                            static_cast<float>(thickness)),
+                        wallNormal
+                    });
+
+                const std::uint32_t front0 =
+                    base + 0;
+
+                const std::uint32_t rear0 =
+                    base + 1;
+
+                const std::uint32_t front1 =
+                    base + 2;
+
+                const std::uint32_t rear1 =
+                    base + 3;
+
+                if (!innerWall)
+                {
+                    //
+                    // Outer wall winding.
+                    //
+                    mesh.indices.insert(
+                        mesh.indices.end(),
+                        {
+                            front0, rear1, rear0,
+                            front0, front1, rear1
+                        });
+                }
+                else
+                {
+                    //
+                    // Reverse winding for an inner hole wall.
+                    //
+                    mesh.indices.insert(
+                        mesh.indices.end(),
+                        {
+                            front0, rear0, rear1,
+                            front0, rear1, front1
+                        });
+                }
+            }
         }
 
     } // anonymous namespace
@@ -120,10 +819,18 @@ namespace opticforge
         std::uint32_t radialSegments,
         std::uint32_t angularSegments)
     {
-        if (thickness <= 0.0)
+        //
+        // =========================================================================
+        // Input validation
+        // =========================================================================
+        //
+
+        if (
+            !std::isfinite(thickness) ||
+            thickness <= 0.0)
         {
             throw std::invalid_argument(
-                "Mirror thickness must be greater than zero.");
+                "Mirror thickness must be finite and greater than zero.");
         }
 
         if (radialSegments < 1)
@@ -138,52 +845,65 @@ namespace opticforge
                 "angularSegments must be >= 3.");
         }
 
-        const MirrorApertureDimensions aperture =
-            mirrorApertureDimensions(
-                opticalSurface.aperture());
 
-        const double innerRadius =
-            aperture.innerRadius;
+        //
+        // =========================================================================
+        // Sample aperture
+        // =========================================================================
+        //
 
-        const double outerRadius =
-            aperture.outerRadius;
+        const SampledAperture aperture =
+            sampleAperture(
+                opticalSurface.aperture(),
+                angularSegments);
 
-        if (outerRadius <= 0.0)
+        if (aperture.outerBoundary.size() < 3)
         {
-            throw std::invalid_argument(
-                "Mirror outer radius must be greater than zero.");
+            throw std::runtime_error(
+                "Mirror aperture outer boundary must contain "
+                "at least three points.");
         }
 
-        if (innerRadius < 0.0)
+        if (
+            aperture.hasHole() &&
+            aperture.innerBoundary.size() !=
+            aperture.outerBoundary.size())
         {
-            throw std::invalid_argument(
-                "Mirror inner radius cannot be negative.");
-        }
-
-        if (innerRadius >= outerRadius)
-        {
-            throw std::invalid_argument(
-                "Mirror inner radius must be smaller than outer radius.");
+            throw std::runtime_error(
+                "Mirror aperture inner and outer contours must have "
+                "matching sample counts.");
         }
 
         const bool hasCentralHole =
-            innerRadius > 0.0;
+            aperture.hasHole();
+
+        const std::uint32_t perimeterCount =
+            static_cast<std::uint32_t>(
+                aperture.perimeterCount());
+
 
         MeshData mesh;
 
+
         //
-        // -------------------------------------------------------------------------
+        // =========================================================================
         // Optical face
-        // -------------------------------------------------------------------------
+        // =========================================================================
         //
 
         std::uint32_t frontCenter = 0;
 
         if (!hasCentralHole)
         {
-            frontCenter =
-                static_cast<std::uint32_t>(
-                    mesh.vertices.size());
+            const glm::dvec2 center2D(
+                0.0,
+                0.0);
+
+            const double centerZ =
+                surfaceZAt(
+                    opticalSurface.geometry(),
+                    center2D,
+                    thickness);
 
             glm::dvec3 centerNormal =
                 surfaceNormal(
@@ -191,119 +911,108 @@ namespace opticforge
                     glm::dvec3(
                         0.0,
                         0.0,
-                        0.0));
+                        centerZ));
 
+            //
+            // Optical-face outward normal points generally toward -Z.
+            //
             if (centerNormal.z > 0.0)
                 centerNormal = -centerNormal;
+
+            frontCenter =
+                static_cast<std::uint32_t>(
+                    mesh.vertices.size());
 
             mesh.vertices.push_back(
                 MeshVertex{
                     glm::vec3(
                         0.0f,
                         0.0f,
-                        0.0f),
-                    toFloat(centerNormal)
+                        static_cast<float>(
+                            centerZ)),
+                    toFloat(
+                        centerNormal)
                 });
         }
+
 
         const std::uint32_t frontRingStart =
             static_cast<std::uint32_t>(
                 mesh.vertices.size());
 
         //
-        // Solid mirrors begin at ring 1 because ring 0 would duplicate
-        // the center vertex.
+        // Solid apertures start at ring 1 because ring 0 would collapse all
+        // perimeter samples to the center.
         //
-        // Annular mirrors begin at ring 0 because that ring is the
-        // inner edge of the hole.
+        // Apertures with holes start at ring 0 because ring 0 is the inner
+        // boundary itself.
         //
         const std::uint32_t firstRing =
             hasCentralHole
             ? 0
             : 1;
 
+
         for (std::uint32_t ring = firstRing;
             ring <= radialSegments;
             ++ring)
         {
-            const double fraction =
-                static_cast<double>(ring) /
-                static_cast<double>(
-                    radialSegments);
-
-            const double ringRadius =
-                innerRadius +
-                (outerRadius - innerRadius) *
-                fraction;
-
-            const double z =
-                surfaceSag(
-                    opticalSurface.geometry(),
-                    ringRadius);
-
-            if (!std::isfinite(z))
+            for (std::uint32_t i = 0;
+                i < perimeterCount;
+                ++i)
             {
-                throw std::runtime_error(
-                    "Mirror aperture extends beyond "
-                    "the valid optical surface domain.");
-            }
+                const glm::dvec2 point =
+                    ringPoint(
+                        aperture,
+                        ring,
+                        radialSegments,
+                        i);
 
-            for (std::uint32_t segment = 0;
-                segment < angularSegments;
-                ++segment)
-            {
-                const double angle =
-                    2.0 *
-                    std::numbers::pi *
-                    static_cast<double>(segment) /
-                    static_cast<double>(
-                        angularSegments);
-
-                const double x =
-                    ringRadius *
-                    std::cos(angle);
-
-                const double y =
-                    ringRadius *
-                    std::sin(angle);
+                const double z =
+                    surfaceZAt(
+                        opticalSurface.geometry(),
+                        point,
+                        thickness);
 
                 glm::dvec3 normal =
                     surfaceNormal(
                         opticalSurface.geometry(),
                         glm::dvec3(
-                            x,
-                            y,
+                            point.x,
+                            point.y,
                             z));
 
-                //
-                // Optical face outward normal points generally toward -Z.
-                //
                 if (normal.z > 0.0)
                     normal = -normal;
 
                 mesh.vertices.push_back(
                     MeshVertex{
                         glm::vec3(
-                            static_cast<float>(x),
-                            static_cast<float>(y),
-                            static_cast<float>(z)),
-                        toFloat(normal)
+                            static_cast<float>(
+                                point.x),
+                            static_cast<float>(
+                                point.y),
+                            static_cast<float>(
+                                z)),
+                        toFloat(
+                            normal)
                     });
             }
         }
 
+
         //
-        // Solid mirror only: connect center to first radial ring.
+        // Solid mirror center fan.
         //
         if (!hasCentralHole)
         {
             for (std::uint32_t i = 0;
-                i < angularSegments;
+                i < perimeterCount;
                 ++i)
             {
                 const std::uint32_t next =
                     (i + 1) %
-                    angularSegments;
+                    perimeterCount;
 
                 mesh.indices.insert(
                     mesh.indices.end(),
@@ -315,13 +1024,15 @@ namespace opticforge
             }
         }
 
+
         const std::uint32_t frontRingCount =
             hasCentralHole
             ? radialSegments + 1
             : radialSegments;
 
+
         //
-        // Connect adjacent optical-face rings.
+        // Connect adjacent front-face rings.
         //
         for (std::uint32_t ring = 0;
             ring + 1 < frontRingCount;
@@ -330,20 +1041,20 @@ namespace opticforge
             const std::uint32_t innerStart =
                 frontRingStart +
                 ring *
-                angularSegments;
+                perimeterCount;
 
             const std::uint32_t outerStart =
                 frontRingStart +
                 (ring + 1) *
-                angularSegments;
+                perimeterCount;
 
             for (std::uint32_t i = 0;
-                i < angularSegments;
+                i < perimeterCount;
                 ++i)
             {
                 const std::uint32_t next =
                     (i + 1) %
-                    angularSegments;
+                    perimeterCount;
 
                 const std::uint32_t i0 =
                     innerStart + i;
@@ -368,9 +1079,9 @@ namespace opticforge
 
 
         //
-        // -------------------------------------------------------------------------
+        // =========================================================================
         // Flat rear face
-        // -------------------------------------------------------------------------
+        // =========================================================================
         //
 
         std::uint32_t rearCenter = 0;
@@ -395,48 +1106,34 @@ namespace opticforge
                 });
         }
 
+
         const std::uint32_t rearRingStart =
             static_cast<std::uint32_t>(
                 mesh.vertices.size());
+
 
         for (std::uint32_t ring = firstRing;
             ring <= radialSegments;
             ++ring)
         {
-            const double fraction =
-                static_cast<double>(ring) /
-                static_cast<double>(
-                    radialSegments);
-
-            const double ringRadius =
-                innerRadius +
-                (outerRadius - innerRadius) *
-                fraction;
-
-            for (std::uint32_t segment = 0;
-                segment < angularSegments;
-                ++segment)
+            for (std::uint32_t i = 0;
+                i < perimeterCount;
+                ++i)
             {
-                const double angle =
-                    2.0 *
-                    std::numbers::pi *
-                    static_cast<double>(segment) /
-                    static_cast<double>(
-                        angularSegments);
-
-                const double x =
-                    ringRadius *
-                    std::cos(angle);
-
-                const double y =
-                    ringRadius *
-                    std::sin(angle);
+                const glm::dvec2 point =
+                    ringPoint(
+                        aperture,
+                        ring,
+                        radialSegments,
+                        i);
 
                 mesh.vertices.push_back(
                     MeshVertex{
                         glm::vec3(
-                            static_cast<float>(x),
-                            static_cast<float>(y),
+                            static_cast<float>(
+                                point.x),
+                            static_cast<float>(
+                                point.y),
                             static_cast<float>(
                                 thickness)),
                         glm::vec3(
@@ -447,18 +1144,19 @@ namespace opticforge
             }
         }
 
+
         //
-        // Solid mirror only: rear center fan.
+        // Solid mirror rear center fan.
         //
         if (!hasCentralHole)
         {
             for (std::uint32_t i = 0;
-                i < angularSegments;
+                i < perimeterCount;
                 ++i)
             {
                 const std::uint32_t next =
                     (i + 1) %
-                    angularSegments;
+                    perimeterCount;
 
                 mesh.indices.insert(
                     mesh.indices.end(),
@@ -470,13 +1168,15 @@ namespace opticforge
             }
         }
 
+
         const std::uint32_t rearRingCount =
             hasCentralHole
             ? radialSegments + 1
             : radialSegments;
 
+
         //
-        // Connect adjacent rear rings.
+        // Connect adjacent rear-face rings.
         //
         for (std::uint32_t ring = 0;
             ring + 1 < rearRingCount;
@@ -485,20 +1185,20 @@ namespace opticforge
             const std::uint32_t innerStart =
                 rearRingStart +
                 ring *
-                angularSegments;
+                perimeterCount;
 
             const std::uint32_t outerStart =
                 rearRingStart +
                 (ring + 1) *
-                angularSegments;
+                perimeterCount;
 
             for (std::uint32_t i = 0;
-                i < angularSegments;
+                i < perimeterCount;
                 ++i)
             {
                 const std::uint32_t next =
                     (i + 1) %
-                    angularSegments;
+                    perimeterCount;
 
                 const std::uint32_t i0 =
                     innerStart + i;
@@ -523,244 +1223,35 @@ namespace opticforge
 
 
         //
-        // -------------------------------------------------------------------------
-        // Outer cylindrical wall
-        // -------------------------------------------------------------------------
+        // =========================================================================
+        // Outer substrate wall
+        // =========================================================================
         //
 
-        const double frontOuterZ =
-            surfaceSag(
-                opticalSurface.geometry(),
-                outerRadius);
-
-        if (!std::isfinite(frontOuterZ))
-        {
-            throw std::runtime_error(
-                "Mirror outer edge lies outside "
-                "the valid surface geometry domain.");
-        }
-
-        if (thickness <= frontOuterZ)
-        {
-            throw std::runtime_error(
-                "Mirror optical surface intersects or passes "
-                "through the rear substrate surface.");
-        }
-
-        const std::uint32_t outerWallStart =
-            static_cast<std::uint32_t>(
-                mesh.vertices.size());
-
-        for (std::uint32_t i = 0;
-            i < angularSegments;
-            ++i)
-        {
-            const double angle =
-                2.0 *
-                std::numbers::pi *
-                static_cast<double>(i) /
-                static_cast<double>(
-                    angularSegments);
-
-            const double c =
-                std::cos(angle);
-
-            const double s =
-                std::sin(angle);
-
-            const float x =
-                static_cast<float>(
-                    outerRadius * c);
-
-            const float y =
-                static_cast<float>(
-                    outerRadius * s);
-
-            const glm::vec3 normal(
-                static_cast<float>(c),
-                static_cast<float>(s),
-                0.0f);
-
-            mesh.vertices.push_back(
-                MeshVertex{
-                    glm::vec3(
-                        x,
-                        y,
-                        static_cast<float>(
-                            frontOuterZ)),
-                    normal
-                });
-
-            mesh.vertices.push_back(
-                MeshVertex{
-                    glm::vec3(
-                        x,
-                        y,
-                        static_cast<float>(
-                            thickness)),
-                    normal
-                });
-        }
-
-        for (std::uint32_t i = 0;
-            i < angularSegments;
-            ++i)
-        {
-            const std::uint32_t next =
-                (i + 1) %
-                angularSegments;
-
-            const std::uint32_t front0 =
-                outerWallStart +
-                i * 2;
-
-            const std::uint32_t rear0 =
-                front0 + 1;
-
-            const std::uint32_t front1 =
-                outerWallStart +
-                next * 2;
-
-            const std::uint32_t rear1 =
-                front1 + 1;
-
-            mesh.indices.insert(
-                mesh.indices.end(),
-                {
-                    front0, rear1, rear0,
-                    front0, front1, rear1
-                });
-        }
+        appendBoundaryWall(
+            mesh,
+            aperture.outerBoundary,
+            opticalSurface.geometry(),
+            thickness,
+            false);
 
 
         //
-        // -------------------------------------------------------------------------
-        // Inner cylindrical wall
-        // -------------------------------------------------------------------------
-        //
-        // Only present for annular mirrors.
+        // =========================================================================
+        // Inner substrate wall
+        // =========================================================================
         //
 
         if (hasCentralHole)
         {
-            const double frontInnerZ =
-                surfaceSag(
-                    opticalSurface.geometry(),
-                    innerRadius);
-
-            if (!std::isfinite(frontInnerZ))
-            {
-                throw std::runtime_error(
-                    "Mirror central hole lies outside "
-                    "the valid surface geometry domain.");
-            }
-
-            if (thickness <= frontInnerZ)
-            {
-                throw std::runtime_error(
-                    "Mirror optical surface intersects or passes "
-                    "through the rear substrate at the central hole.");
-            }
-
-            const std::uint32_t innerWallStart =
-                static_cast<std::uint32_t>(
-                    mesh.vertices.size());
-
-            for (std::uint32_t i = 0;
-                i < angularSegments;
-                ++i)
-            {
-                const double angle =
-                    2.0 *
-                    std::numbers::pi *
-                    static_cast<double>(i) /
-                    static_cast<double>(
-                        angularSegments);
-
-                const double c =
-                    std::cos(angle);
-
-                const double s =
-                    std::sin(angle);
-
-                const float x =
-                    static_cast<float>(
-                        innerRadius * c);
-
-                const float y =
-                    static_cast<float>(
-                        innerRadius * s);
-
-                //
-                // Inner wall outward normal points toward the hole,
-                // i.e. inward toward the optical axis.
-                //
-                const glm::vec3 normal(
-                    static_cast<float>(-c),
-                    static_cast<float>(-s),
-                    0.0f);
-
-                //
-                // Optical-face edge of hole.
-                //
-                mesh.vertices.push_back(
-                    MeshVertex{
-                        glm::vec3(
-                            x,
-                            y,
-                            static_cast<float>(
-                                frontInnerZ)),
-                        normal
-                    });
-
-                //
-                // Rear-face edge of hole.
-                //
-                mesh.vertices.push_back(
-                    MeshVertex{
-                        glm::vec3(
-                            x,
-                            y,
-                            static_cast<float>(
-                                thickness)),
-                        normal
-                    });
-            }
-
-            for (std::uint32_t i = 0;
-                i < angularSegments;
-                ++i)
-            {
-                const std::uint32_t next =
-                    (i + 1) %
-                    angularSegments;
-
-                const std::uint32_t front0 =
-                    innerWallStart +
-                    i * 2;
-
-                const std::uint32_t rear0 =
-                    front0 + 1;
-
-                const std::uint32_t front1 =
-                    innerWallStart +
-                    next * 2;
-
-                const std::uint32_t rear1 =
-                    front1 + 1;
-
-                //
-                // Reverse winding relative to the outer wall because
-                // this surface faces inward toward the hole.
-                //
-                mesh.indices.insert(
-                    mesh.indices.end(),
-                    {
-                        front0, rear0, rear1,
-                        front0, rear1, front1
-                    });
-            }
+            appendBoundaryWall(
+                mesh,
+                aperture.innerBoundary,
+                opticalSurface.geometry(),
+                thickness,
+                true);
         }
+
 
         return mesh;
     }

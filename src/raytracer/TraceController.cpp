@@ -86,6 +86,13 @@ namespace opticforge::raytracer
                                 "Invalid annular launch pupil radii.");
                         }
                     }
+                    else if constexpr(
+                        std::is_same_v<
+                        T,
+                        optics::EllipticalAperture>)
+                    {
+                        //FIll me in with validation code
+                    }
                     else
                     {
                         static_assert(
@@ -132,6 +139,14 @@ namespace opticforge::raytracer
                             (u - 0.5) * shape.width,
                             (v - 0.5) * shape.height
                         };
+                    }
+                    else if constexpr (
+                        std::is_same_v<
+                        T,
+                        optics::EllipticalAperture>)
+                    {
+                        //@TODO: Fill me in
+                        return { 0,0 };
                     }
                     else
                     {

@@ -6,6 +6,20 @@
 
 namespace opticforge::optics
 {
+    struct EllipticalAperture
+    {
+        double radiusX = 1.0;
+        double radiusY = 1.0;
+
+        EllipticalAperture() = default;
+
+        EllipticalAperture(
+            double radiusX,
+            double radiusY);
+
+        bool contains(
+            const glm::dvec2& point) const;
+    };
 
     //
     // Circular aperture centered on the local optical axis.
@@ -74,7 +88,8 @@ namespace opticforge::optics
         std::variant<
         CircularAperture,
         AnnularAperture,
-        RectangularAperture>;
+        RectangularAperture,
+        EllipticalAperture>;
 
 
     //
@@ -107,6 +122,10 @@ namespace opticforge::optics
         explicit Aperture(
             const ApertureGeometry& geometry);
 
+        explicit Aperture(
+            const EllipticalAperture& aperture);
+
+
         //
         // Returns true if a local-space XY point lies within
         // the aperture.
@@ -133,6 +152,10 @@ namespace opticforge::optics
         void setRectangular(
             double width,
             double height);
+       
+        void setElliptical(
+            double radiusX,
+            double radiusY);
 
     private:
         ApertureGeometry m_geometry;

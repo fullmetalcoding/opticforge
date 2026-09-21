@@ -248,6 +248,17 @@ namespace opticforge::project
                             { "height", concreteAperture.height }
                         };
                     }
+                    else if constexpr (
+                        std::is_same_v<
+                        Aperture,
+                        optics::EllipticalAperture>)
+                    {
+                        return {
+                            { "type", "elliptical" },
+                            { "radiusX", concreteAperture.radiusX },
+                            { "radiusY", concreteAperture.radiusY }
+                        };
+                    }
                     else
                     {
                         static_assert(
@@ -269,6 +280,15 @@ namespace opticforge::project
                 return optics::Aperture{
                     optics::CircularAperture{
                         value.at("radius").get<double>()
+                    }
+                };
+            }
+            if (type == "elliptical")
+            {
+                return optics::Aperture{
+                    optics::EllipticalAperture{
+                        value.at("radiusX").get<double>(),
+                        value.at("radiusY").get<double>()
                     }
                 };
             }

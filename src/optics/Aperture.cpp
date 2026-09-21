@@ -5,7 +5,33 @@
 
 namespace opticforge::optics
 {
+    EllipticalAperture::EllipticalAperture(
+        double radiusX_,
+        double radiusY_)
+        : radiusX(std::max(0.0, radiusX_)),
+        radiusY(std::max(0.0, radiusY_))
+    {
+    }
 
+    bool EllipticalAperture::contains(
+        const glm::dvec2& point) const
+    {
+        if (radiusX <= 0.0 ||
+            radiusY <= 0.0)
+        {
+            return false;
+        }
+
+        const double x =
+            point.x / radiusX;
+
+        const double y =
+            point.y / radiusY;
+
+        return
+            x * x +
+            y * y <= 1.0;
+    }
     // -----------------------------------------------------------------------------
     // CircularAperture
     // -----------------------------------------------------------------------------
@@ -93,6 +119,13 @@ namespace opticforge::optics
     // Aperture
     // -----------------------------------------------------------------------------
 
+    Aperture::Aperture(
+        const EllipticalAperture& aperture
+    ) : 
+        m_geometry(aperture)
+    {
+
+    }
     Aperture::Aperture()
         : m_geometry(
             CircularAperture{ 1.0 })
@@ -151,7 +184,18 @@ namespace opticforge::optics
     {
         m_geometry = geometry;
     }
+    void Aperture::setElliptical(
+        double radius_x,
+        double radius_y
 
+    )
+    {
+        m_geometry =
+            EllipticalAperture{
+                radius_x,
+                radius_y
+        };
+    }
     void Aperture::setCircular(
         double radius)
     {

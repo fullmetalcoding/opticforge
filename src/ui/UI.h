@@ -47,11 +47,38 @@ namespace opticforge::ui
         Concave,
         Convex
     };
+    enum class MirrorApertureShape
+    {
+        Circular,
+        Elliptical,
+        Rectangular
+    };
     struct AddMirrorDialogState
     {
+        MirrorApertureShape apertureShape =
+            MirrorApertureShape::Circular;
+
+        //
+        // Circular aperture
+        //
         double diameterMm = 200.0;
-        double thicknessMm = 20.0;
         double centralHoleMm = 0.0;
+
+        //
+        // Elliptical aperture
+        //
+        // Full diameters along the mirror-local X/Y axes.
+        //
+        double ellipseDiameterXmm = 70.710678;
+        double ellipseDiameterYmm = 50.0;
+
+        //
+        // Rectangular aperture
+        //
+        double rectangleWidthMm = 50.0;
+        double rectangleHeightMm = 50.0;
+
+        double thicknessMm = 20.0;
 
         bool surfacePlane = false;
 
@@ -59,11 +86,12 @@ namespace opticforge::ui
         double conicConstant = -1.0;
 
         MirrorCurvature curvature =
-            MirrorCurvature::Concave; 
+            MirrorCurvature::Concave;
 
         glm::dvec3 positionMm{ 0.0, 0.0, 0.0 };
         glm::dvec3 orientationDegrees{ 0.0, 0.0, 0.0 };
-        std::string name{ "Mirror" }; 
+
+        std::string name{ "Mirror" };
     };
 
 	class UI {

@@ -201,6 +201,28 @@
         }
       }
     },
+    "ellipticalAperture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "radiusX",
+        "radiusY"
+      ],
+      "properties": {
+        "type": {
+          "const": "elliptical"
+        },
+        "radiusX": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "radiusY": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
     "aperture": {
       "oneOf": [
         {
@@ -211,6 +233,9 @@
         },
         {
           "$ref": "#/definitions/rectangularAperture"
+        },
+        {
+          "$ref" :  "#/definitions/ellipticalAperture"
         }
       ]
     },
