@@ -185,10 +185,33 @@ namespace opticforge::raytracer {
 							ray.ray.origin),
 						primitive.transform.worldToLocalDirection(
 							ray.ray.direction));
+					const auto acceptAbsorbingHit =
+						[&](const optics::SurfaceHit& worldHit)
+						{
+							if (!std::isfinite(worldHit.t)
+								|| worldHit.t <= minHitDistance
+								|| worldHit.t >= closestT)
+							{
+								return;
+							}
 
+							RayIntersection candidate{};
+
+							candidate.primitiveId = record.id;
+							candidate.hit = worldHit;
+
+							candidate.behavior =
+								IntersectionBehavior::Absorb;
+
+							candidate.surface = nullptr;
+
+							closestT = worldHit.t;
+							closest = candidate;
+						};
 					const auto testSurface =
 						[&](const optics::OpticalSurface& surface,
-							const glm::dvec3& nominalOffset)
+							const glm::dvec3& nominalOffset,
+							bool absorbBackSide = false)
 						{
 							// Remove the nominal surface placement.
 							// OpticalSurface::intersect will then remove
@@ -226,7 +249,26 @@ namespace opticforge::raytracer {
 							worldHit.normal =
 								primitive.transform.localToWorldNormal(
 									parentHit.normal);
+							if (absorbBackSide)
+							{
+								const double incidence =
+									glm::dot(
+										ray.ray.direction,
+										worldHit.normal);
 
+								//
+								// Surface normals point toward local +Z.
+								// Mirror substrate is also on the +Z side.
+								//
+								// A ray traveling from +Z toward the optical surface therefore
+								// approaches from the physical backside.
+								//
+								if (incidence < 0.0)
+								{
+									acceptAbsorbingHit(worldHit);
+									return;
+								}
+							}
 							RayIntersection candidate{};
 
 							// Matches the spelling in your current header.
@@ -240,29 +282,7 @@ namespace opticforge::raytracer {
 							closestT = worldHit.t;
 							closest = candidate;
 						};
-					const auto acceptAbsorbingHit =
-						[&](const optics::SurfaceHit& worldHit)
-						{
-							if (!std::isfinite(worldHit.t)
-								|| worldHit.t <= minHitDistance
-								|| worldHit.t >= closestT)
-							{
-								return;
-							}
-
-							RayIntersection candidate{};
-
-							candidate.primitiveId = record.id;
-							candidate.hit = worldHit;
-
-							candidate.behavior =
-								IntersectionBehavior::Absorb;
-
-							candidate.surface = nullptr;
-
-							closestT = worldHit.t;
-							closest = candidate;
-						};
+					
 
 					if constexpr (
 						std::is_same_v<Primitive, telescope::Lens>)
@@ -284,7 +304,7 @@ namespace opticforge::raytracer {
 					{
 						testSurface(
 							primitive.surface,
-							glm::dvec3(0.0));
+							glm::dvec3(0.0), true);
 
 					}
 					else if constexpr (
