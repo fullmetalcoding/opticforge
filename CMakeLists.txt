@@ -202,8 +202,8 @@ set(OPTICFORGE_SOURCES
     src/renderer/ShaderProgram.h
     src/renderer/ShaderManager.cpp
     src/renderer/ShaderManager.h
-    src/renderer/Camera.cpp
-    src/renderer/Camera.h
+    src/renderer/camera.cpp
+    src/renderer/camera.h
     src/renderer/OrbitCameraController.cpp
     src/renderer/OrbitCameraController.h
     src/renderer/RenderSystem.cpp
