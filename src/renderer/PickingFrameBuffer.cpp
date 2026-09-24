@@ -1,4 +1,4 @@
-#include "PickingFramebuffer.h"
+#include "PickingFrameBuffer.h"
 
 #include <stdexcept>
 
