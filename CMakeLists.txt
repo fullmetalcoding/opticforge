@@ -144,6 +144,10 @@ FetchContent_Declare(glm
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(TBB_TEST OFF CACHE BOOL "" FORCE)
     set(TBB_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(TBBMALLOC_BUILD OFF CACHE BOOL "" FORCE)
+    # GCC 13 diagnoses an upstream oneTBB atomic operation as a false
+    # positive stringop-overflow; do not turn dependency warnings into errors.
+    set(TBB_STRICT OFF CACHE BOOL "" FORCE)
     set(TBB_INSTALL OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(oneTBB
         GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
