@@ -10,12 +10,19 @@ permissions:
 
 jobs:
   raytracer:
-    name: Raytracer (${{ matrix.os }})
+    name: Raytracer (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-24.04]
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: Ubuntu 24.04
+            os: ubuntu-24.04
+          - name: GCC 10
+            os: ubuntu-22.04
+            cmake_args: -DCMAKE_C_COMPILER=gcc-10 -DCMAKE_CXX_COMPILER=g++-10
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +35,13 @@ jobs:
             libxcursor-dev libxfixes-dev libxkbcommon-dev libwayland-dev \
             wayland-protocols libegl1-mesa-dev libgl1-mesa-dev \
             libasound2-dev libpulse-dev
+
+      - name: Install GCC 10 and CMake 3.31 (Ubuntu 22.04)
+        if: matrix.name == 'GCC 10'
+        run: |
+          sudo apt-get install -y --no-install-recommends gcc-10 g++-10
+          python3 -m pip install --user cmake==3.31.10
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Cache FetchContent sources
         uses: actions/cache@v4
@@ -42,7 +56,7 @@ jobs:
 
       - name: Configure (Linux)
         if: runner.os == 'Linux'
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON ${{ matrix.cmake_args }}
 
       - name: Build application and tests
         run: cmake --build build --config Release --parallel 2
