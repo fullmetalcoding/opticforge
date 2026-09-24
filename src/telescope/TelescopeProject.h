@@ -2,6 +2,9 @@
 
 #include "TelescopePrimitives.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace opticforge::project
 {
 	class ProjectSerializer;
