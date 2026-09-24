@@ -139,19 +139,21 @@ FetchContent_Declare(glm
     GIT_TAG        ${GLM_TAG}
     GIT_SHALLOW    TRUE)
 
-# Use oneTBB's parallel_for directly on every platform. GCC 10's parallel STL
-# expects the removed tbb::task API and cannot consume current oneTBB headers.
-set(TBB_TEST OFF CACHE BOOL "" FORCE)
-set(TBB_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(TBBMALLOC_BUILD OFF CACHE BOOL "" FORCE)
-# GCC 13 diagnoses an upstream oneTBB atomic operation as a false
-# positive stringop-overflow; do not turn dependency warnings into errors.
-set(TBB_STRICT OFF CACHE BOOL "" FORCE)
-set(TBB_INSTALL OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(oneTBB
-    GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
-    GIT_TAG        ${ONETBB_TAG}
-    GIT_SHALLOW    TRUE)
+# GCC/libstdc++ before 14 needs direct oneTBB; newer libstdc++ uses it through
+# std::execution::par. MSVC uses its own standard-library parallel backend.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(TBB_TEST OFF CACHE BOOL "" FORCE)
+    set(TBB_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(TBBMALLOC_BUILD OFF CACHE BOOL "" FORCE)
+    # GCC 13 diagnoses an upstream oneTBB atomic operation as a false
+    # positive stringop-overflow; do not turn dependency warnings into errors.
+    set(TBB_STRICT OFF CACHE BOOL "" FORCE)
+    set(TBB_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(oneTBB
+        GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
+        GIT_TAG        ${ONETBB_TAG}
+        GIT_SHALLOW    TRUE)
+endif()
 
     
 # CMake 4 removed compatibility with projects declaring cmake_minimum_required
@@ -161,7 +163,10 @@ FetchContent_Declare(oneTBB
 set(_opticforge_saved_policy_min "${CMAKE_POLICY_VERSION_MINIMUM}")
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
-FetchContent_MakeAvailable(SDL3 glew imgui implot json json_schema_validator glm oneTBB)
+FetchContent_MakeAvailable(SDL3 glew imgui implot json json_schema_validator glm)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    FetchContent_MakeAvailable(oneTBB)
+endif()
 
 if(_opticforge_saved_policy_min STREQUAL "")
     unset(CMAKE_POLICY_VERSION_MINIMUM)
@@ -306,8 +311,10 @@ target_link_libraries(opticforge PRIVATE
     nlohmann_json::nlohmann_json
     nlohmann_json_schema_validator::validator
     glm::glm
-    TBB::tbb
 )
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(opticforge PRIVATE TBB::tbb)
+endif()
 
 
 # -----------------------------------------------------------------------------
@@ -398,7 +405,10 @@ if(BUILD_TESTING)
         src/optics/OpticalSurface.cpp
         src/optics/OpticalInterface.cpp)
     target_include_directories(opticforge_raytracer_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-    target_link_libraries(opticforge_raytracer_tests PRIVATE glm::glm TBB::tbb)
+    target_link_libraries(opticforge_raytracer_tests PRIVATE glm::glm)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(opticforge_raytracer_tests PRIVATE TBB::tbb)
+    endif()
     add_test(NAME raytracer_regressions COMMAND opticforge_raytracer_tests)
 endif()
 # -----------------------------------------------------------------------------
