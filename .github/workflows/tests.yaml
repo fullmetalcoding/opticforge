@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  raytracer:
+    name: Raytracer (Windows x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache FetchContent sources
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-Windows-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-Windows-
+
+      - name: Configure
+        run: cmake -S . -B build -A x64 -DBUILD_TESTING=ON
+
+      - name: Build tests
+        run: cmake --build build --config Release --target opticforge_raytracer_tests --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build -C Release --output-on-failure --timeout 300
