@@ -10,23 +10,42 @@ permissions:
 
 jobs:
   raytracer:
-    name: Raytracer (Windows x64)
-    runs-on: windows-latest
+    name: Raytracer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build libx11-dev libxext-dev libxrandr-dev libxi-dev \
+            libxcursor-dev libxfixes-dev libxkbcommon-dev libwayland-dev \
+            wayland-protocols libegl1-mesa-dev libgl1-mesa-dev \
+            libasound2-dev libpulse-dev
 
       - name: Cache FetchContent sources
         uses: actions/cache@v4
         with:
           path: build/_deps
-          key: deps-Windows-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: deps-Windows-
+          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-${{ runner.os }}-
 
-      - name: Configure
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
         run: cmake -S . -B build -A x64 -DBUILD_TESTING=ON
 
-      - name: Build tests
-        run: cmake --build build --config Release --target opticforge_raytracer_tests --parallel
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+
+      - name: Build application and tests
+        run: cmake --build build --config Release --parallel 2
 
       - name: Run tests
         run: ctest --test-dir build -C Release --output-on-failure --timeout 300

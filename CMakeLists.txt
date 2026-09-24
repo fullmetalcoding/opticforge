@@ -62,6 +62,7 @@ set(IMGUI_TAG     "v1.91.5-docking")
 set(IMPLOT_TAG    "v0.16")
 set(JSON_TAG      "v3.11.3")
 set(GLM_TAG       "1.0.3")
+set(ONETBB_TAG    "v2022.0.0")
 set(JSON_SCHEMA_VALIDATOR_TAG "2.4.0")
 
 
@@ -138,6 +139,22 @@ FetchContent_Declare(glm
     GIT_TAG        ${GLM_TAG}
     GIT_SHALLOW    TRUE)
 
+# GCC's parallel STL uses oneTBB for std::execution::par. Build the same
+# pinned dependency for the application and the standalone raytracer tests.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(TBB_TEST OFF CACHE BOOL "" FORCE)
+    set(TBB_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(TBBMALLOC_BUILD OFF CACHE BOOL "" FORCE)
+    # GCC 13 diagnoses an upstream oneTBB atomic operation as a false
+    # positive stringop-overflow; do not turn dependency warnings into errors.
+    set(TBB_STRICT OFF CACHE BOOL "" FORCE)
+    set(TBB_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(oneTBB
+        GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
+        GIT_TAG        ${ONETBB_TAG}
+        GIT_SHALLOW    TRUE)
+endif()
+
     
 # CMake 4 removed compatibility with projects declaring cmake_minimum_required
 # below 3.5, and glew-cmake still declares an older minimum. This is the
@@ -147,6 +164,9 @@ set(_opticforge_saved_policy_min "${CMAKE_POLICY_VERSION_MINIMUM}")
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 FetchContent_MakeAvailable(SDL3 glew imgui implot json json_schema_validator glm)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    FetchContent_MakeAvailable(oneTBB)
+endif()
 
 if(_opticforge_saved_policy_min STREQUAL "")
     unset(CMAKE_POLICY_VERSION_MINIMUM)
@@ -186,8 +206,8 @@ set(OPTICFORGE_SOURCES
     src/renderer/ShaderProgram.h
     src/renderer/ShaderManager.cpp
     src/renderer/ShaderManager.h
-    src/renderer/Camera.cpp
-    src/renderer/Camera.h
+    src/renderer/camera.cpp
+    src/renderer/camera.h
     src/renderer/OrbitCameraController.cpp
     src/renderer/OrbitCameraController.h
     src/renderer/RenderSystem.cpp
@@ -294,7 +314,6 @@ target_link_libraries(opticforge PRIVATE
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    find_package(TBB CONFIG REQUIRED)
     target_link_libraries(opticforge PRIVATE TBB::tbb)
 endif()
 
@@ -415,6 +434,10 @@ else()
                 LIBRARY DESTINATION lib
                         COMPONENT opticforge
                         NAMELINK_SKIP)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # The installed executable uses $ORIGIN/lib; ship the TBB soname too.
+        install(TARGETS tbb LIBRARY DESTINATION lib COMPONENT opticforge)
+    endif()
 endif()
 
 if(NOT WIN32 AND NOT APPLE)

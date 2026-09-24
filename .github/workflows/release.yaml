@@ -65,10 +65,10 @@ jobs:
             # than "not that one". CMake picks the newest it finds.
             cmake_args: -A x64
             config: Release
-         # - name: Linux x64
-         #   os: ubuntu-latest
-         #   cmake_args: -G Ninja -DCMAKE_BUILD_TYPE=Release
-         #   config: Release
+          - name: Linux x64
+            os: ubuntu-24.04
+            cmake_args: -G Ninja -DCMAKE_BUILD_TYPE=Release
+            config: Release
 
     steps:
       - uses: actions/checkout@v4

@@ -1,4 +1,4 @@
-#include "Camera.h"
+#include "camera.h"
 #include <glm/gtx/norm.hpp>
 #include <stdexcept>
 
