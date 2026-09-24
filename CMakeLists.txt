@@ -373,7 +373,25 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET opticforge PROPERTY CXX_STANDARD 20)
 endif()
 
-# TODO: Add tests and install targets if needed.
+# Focused optical regression tests. No GUI or OpenGL context is required.
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(opticforge_raytracer_tests
+        tests/RaytracerTests.cpp
+        src/raytracer/Raytracer.cpp
+        src/optics/ConicGeometry.cpp
+        src/optics/PlaneGeometry.cpp
+        src/optics/Transform.cpp
+        src/optics/Aperture.cpp
+        src/optics/OpticalSurface.cpp
+        src/optics/OpticalInterface.cpp)
+    target_include_directories(opticforge_raytracer_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(opticforge_raytracer_tests PRIVATE glm::glm)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(opticforge_raytracer_tests PRIVATE TBB::tbb)
+    endif()
+    add_test(NAME raytracer_regressions COMMAND opticforge_raytracer_tests)
+endif()
 # -----------------------------------------------------------------------------
 #  Install and package
 # -----------------------------------------------------------------------------
@@ -458,4 +476,3 @@ else()
 endif()
  
 include(CPack)
-
