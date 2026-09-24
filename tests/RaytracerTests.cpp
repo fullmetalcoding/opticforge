@@ -71,6 +71,32 @@ void expectSide(const telescope::PrimitiveRecord& primitive,
 
 int main()
 {
+    // Exercise the parallel bundle entry point, including output ordering.
+    telescope::ObservationPlane bundlePlane;
+    bundlePlane.transform.setPosition({0.0, 0.0, 1000.0});
+    const auto bundleMirror = mirror(optics::PlaneGeometry{});
+    std::vector<optics::OpticalRay> bundle(256);
+    for (std::size_t i = 0; i < bundle.size(); ++i) {
+        const bool fromBack = i % 2 != 0;
+        bundle[i].ray = optics::Ray(
+            {static_cast<double>(i % 10), 0.0, fromBack ? 10.0 : -10.0},
+            {0.0, 0.0, fromBack ? -1.0 : 1.0});
+    }
+    raytracer::RayTracer tracer;
+    const auto bundleResult = tracer.traceRayBundle(
+        bundle, {bundleMirror}, bundlePlane, 1);
+    check(bundleResult.paths.size() == bundle.size(), "bundle preserves ray count");
+    for (std::size_t i = 0; i < bundleResult.paths.size(); ++i) {
+        const auto& path = bundleResult.paths[i];
+        check(path.initialRay.ray.origin.x == bundle[i].ray.origin.x,
+              "parallel bundle preserves input order");
+        check(path.termination == (i % 2 ? raytracer::RayTermination::Absorbed
+                                        : raytracer::RayTermination::MaxInteractions),
+              "parallel bundle keeps each ray's outcome");
+    }
+    check(tracer.traceRayBundle({}, {bundleMirror}, bundlePlane).paths.empty(),
+          "empty bundle yields empty paths");
+
     expectSide(mirror(optics::PlaneGeometry{}), {0, 0, 1}, false);
     expectSide(mirror(optics::PlaneGeometry{}), {0, 0, 1}, true);
     expectSide(mirror(optics::PlaneGeometry{}, true), {0, 0, -1}, false);

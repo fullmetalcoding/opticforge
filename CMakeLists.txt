@@ -139,8 +139,8 @@ FetchContent_Declare(glm
     GIT_TAG        ${GLM_TAG}
     GIT_SHALLOW    TRUE)
 
-# GCC's parallel STL uses oneTBB for std::execution::par. Build the same
-# pinned dependency for the application and the standalone raytracer tests.
+# GCC/libstdc++ before 14 needs direct oneTBB; newer libstdc++ uses it through
+# std::execution::par. MSVC uses its own standard-library parallel backend.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(TBB_TEST OFF CACHE BOOL "" FORCE)
     set(TBB_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -312,10 +312,10 @@ target_link_libraries(opticforge PRIVATE
     nlohmann_json_schema_validator::validator
     glm::glm
 )
-
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(opticforge PRIVATE TBB::tbb)
 endif()
+
 
 # -----------------------------------------------------------------------------
 #  Compiler settings
