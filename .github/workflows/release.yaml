@@ -124,10 +124,9 @@ jobs:
       - name: Build
         run: cmake --build build --config ${{ matrix.config }} --parallel
 
-      # A release that fails its own self-test should not be published.
-      #- name: Test
-      #  working-directory: build
-      #  run: ctest --build-config ${{ matrix.config }} --output-on-failure --timeout 300
+      - name: Test
+        working-directory: build
+        run: ctest --build-config ${{ matrix.config }} --output-on-failure --timeout 300
 
       - name: Package
         working-directory: build
