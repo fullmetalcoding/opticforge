@@ -1,6 +1,6 @@
 #include "Raytracer.h"
 #include <algorithm>
-#if defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE < 14
+#if defined(__linux__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE < 14
 // Older libstdc++ PSTL requires the removed tbb::task API when <execution>
 // sees oneTBB headers. Avoid including <execution> on these toolchains.
 #include <oneapi/tbb/blocked_range.h>
@@ -30,7 +30,7 @@ namespace opticforge::raytracer {
 		// Create one output slot per input ray before parallel work starts.
 		result.paths.resize(rayBundle.size());
 
-#if defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE < 14
+#if defined(__linux__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE < 14
 		oneapi::tbb::parallel_for(
 			oneapi::tbb::blocked_range<std::size_t>(0, rayBundle.size()),
 			[this, &rayBundle, &scene, &observationPlane, maxInteractions, &result]
