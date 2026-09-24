@@ -1,6 +1,7 @@
 #include "Raytracer.h"
 #include <algorithm>
-#include <execution>
+#include <oneapi/tbb/blocked_range.h>
+#include <oneapi/tbb/parallel_for.h>
 
 #include <cmath>
 #include <type_traits>
@@ -23,14 +24,14 @@ namespace opticforge::raytracer {
 		// Create one output slot per input ray before parallel work starts.
 		result.paths.resize(rayBundle.size());
 
-		std::transform(
-			std::execution::par,
-			rayBundle.begin(),
-			rayBundle.end(),
-			result.paths.begin(),
-			[this, &scene, &observationPlane, maxInteractions](const optics::OpticalRay& ray)
+		oneapi::tbb::parallel_for(
+			oneapi::tbb::blocked_range<std::size_t>(0, rayBundle.size()),
+			[this, &rayBundle, &scene, &observationPlane, maxInteractions, &result]
+			(const oneapi::tbb::blocked_range<std::size_t>& range)
 			{
-				return traceRay(ray, scene, observationPlane,maxInteractions);
+				for (std::size_t i = range.begin(); i != range.end(); ++i)
+					result.paths[i] = traceRay(rayBundle[i], scene, observationPlane,
+						maxInteractions);
 			});
 
 		return result;
