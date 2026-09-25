@@ -38,6 +38,11 @@ message(STATUS "OpticForge version: ${OPTICFORGE_VERSION} (${OPTICFORGE_VERSION_
 project (OpticForge
    VERSION ${OPTICFORGE_VERSION}
    LANGUAGES CXX)
+
+# TraceController uses std::thread and std::async. On older glibc, pthread
+# must appear explicitly on the executable's link line.
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
    
 # Available to the application, so an About box or a log line can report the
 # exact build rather than a number someone remembered to bump.
@@ -304,6 +309,7 @@ target_include_directories(opticforge PRIVATE
 
 
 target_link_libraries(opticforge PRIVATE
+    Threads::Threads
     SDL3::SDL3
     libglew_static
     imgui
