@@ -1,3 +1,6 @@
+// Part of OpticForge.
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #include "Raytracer.h"
 #include <algorithm>
 #if defined(__linux__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE < 14

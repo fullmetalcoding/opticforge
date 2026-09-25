@@ -1,3 +1,6 @@
+// Part of OpticForge.
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #include "BundleGenerators.h"
 #include <cmath>
 #include <cstddef>
