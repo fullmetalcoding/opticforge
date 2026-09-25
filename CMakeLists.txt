@@ -38,6 +38,11 @@ message(STATUS "OpticForge version: ${OPTICFORGE_VERSION} (${OPTICFORGE_VERSION_
 project (OpticForge
    VERSION ${OPTICFORGE_VERSION}
    LANGUAGES CXX)
+
+# TraceController uses std::thread and std::async. On older glibc, pthread
+# must appear explicitly on the executable's link line.
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
    
 # Available to the application, so an About box or a log line can report the
 # exact build rather than a number someone remembered to bump.
@@ -304,6 +309,7 @@ target_include_directories(opticforge PRIVATE
 
 
 target_link_libraries(opticforge PRIVATE
+    Threads::Threads
     SDL3::SDL3
     libglew_static
     imgui
@@ -313,7 +319,15 @@ target_link_libraries(opticforge PRIVATE
     glm::glm
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_link_libraries(opticforge PRIVATE TBB::tbb)
+    # SDL3 calls dlopen internally. Keep its libdl dependency on the shared
+    # library itself, so --as-needed cannot discard libdl before SDL3 appears
+    # later in the executable's transitive link line.
+    target_link_libraries(SDL3-shared PRIVATE ${CMAKE_DL_LIBS})
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # dlopen is provided by libdl on glibc before 2.34 (e.g. Rocky 8).
+    target_link_libraries(opticforge PRIVATE TBB::tbb ${CMAKE_DL_LIBS})
 endif()
 
 
@@ -407,7 +421,7 @@ if(BUILD_TESTING)
     target_include_directories(opticforge_raytracer_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(opticforge_raytracer_tests PRIVATE glm::glm)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        target_link_libraries(opticforge_raytracer_tests PRIVATE TBB::tbb)
+        target_link_libraries(opticforge_raytracer_tests PRIVATE TBB::tbb ${CMAKE_DL_LIBS})
     endif()
     add_test(NAME raytracer_regressions COMMAND opticforge_raytracer_tests)
 endif()
