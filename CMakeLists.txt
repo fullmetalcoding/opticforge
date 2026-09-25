@@ -313,7 +313,9 @@ target_link_libraries(opticforge PRIVATE
     glm::glm
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_link_libraries(opticforge PRIVATE TBB::tbb)
+    # dlopen is provided by libdl on glibc before 2.34 (e.g. Rocky 8).
+    # Keep this after the other libraries for linkers using --as-needed.
+    target_link_libraries(opticforge PRIVATE TBB::tbb ${CMAKE_DL_LIBS})
 endif()
 
 
@@ -407,7 +409,7 @@ if(BUILD_TESTING)
     target_include_directories(opticforge_raytracer_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(opticforge_raytracer_tests PRIVATE glm::glm)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        target_link_libraries(opticforge_raytracer_tests PRIVATE TBB::tbb)
+        target_link_libraries(opticforge_raytracer_tests PRIVATE TBB::tbb ${CMAKE_DL_LIBS})
     endif()
     add_test(NAME raytracer_regressions COMMAND opticforge_raytracer_tests)
 endif()
