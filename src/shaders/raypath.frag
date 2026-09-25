@@ -1,3 +1,6 @@
+// Part of OpticForge.
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #version 330 core
 flat in int vCategory;
 uniform vec4 uObservationColor;

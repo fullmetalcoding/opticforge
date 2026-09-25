@@ -1,4 +1,7 @@
-﻿// opticforge.cpp : Defines the entry point for the application.
+﻿// Part of OpticForge.
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
+// opticforge.cpp : Defines the entry point for the application.
 //
 
 

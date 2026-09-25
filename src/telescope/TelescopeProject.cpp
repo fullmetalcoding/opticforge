@@ -1,3 +1,6 @@
+// Part of OpticForge.
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #include "TelescopeProject.h"
 namespace opticforge::telescope {
     void TelescopeProject::clearProject()

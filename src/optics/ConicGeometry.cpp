@@ -1,4 +1,7 @@
-﻿#include "ConicGeometry.h"
+﻿// Part of OpticForge.
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
+#include "ConicGeometry.h"
 
 #include <algorithm>
 #include <cmath>

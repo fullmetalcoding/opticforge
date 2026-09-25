@@ -1,3 +1,6 @@
+// Part of OpticForge.
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #pragma once
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
