@@ -313,8 +313,14 @@ target_link_libraries(opticforge PRIVATE
     glm::glm
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # SDL3 calls dlopen internally. Keep its libdl dependency on the shared
+    # library itself, so --as-needed cannot discard libdl before SDL3 appears
+    # later in the executable's transitive link line.
+    target_link_libraries(SDL3-shared PRIVATE ${CMAKE_DL_LIBS})
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # dlopen is provided by libdl on glibc before 2.34 (e.g. Rocky 8).
-    # Keep this after the other libraries for linkers using --as-needed.
     target_link_libraries(opticforge PRIVATE TBB::tbb ${CMAKE_DL_LIBS})
 endif()
 
