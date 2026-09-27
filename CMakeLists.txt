@@ -245,6 +245,7 @@ set(OPTICFORGE_SOURCES
     
 )
 
+
 set(OPTICFORGE_SHADERS
     src/shaders/grid.vert
     src/shaders/grid.frag
@@ -300,6 +301,12 @@ configure_file(
 set(OPTICFORGE_GENERATED_SOURCES ${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp)
 # Add source to this project's executable.
 add_executable (opticforge ${OPTICFORGE_SOURCES} ${OPTICFORGE_SHADERS} ${OPTICFORGE_GENERATED_SOURCES})
+
+if(WIN32)
+    target_sources(opticforge PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/resources/opticforge.rc
+    )
+endif()
 
 target_compile_features(opticforge PRIVATE cxx_std_17)
 
