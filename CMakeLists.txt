@@ -269,6 +269,10 @@ source_group("Shaders" FILES ${OPTICFORGE_SHADERS})
 
 set(OPTICFORGE_PROJECT_SCHEMA_FILE
     "${CMAKE_CURRENT_SOURCE_DIR}/resources/project-schema.json"
+   
+)
+set(OPTICFORGE_MATERIAL_SCHEMA_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/material-schema.json"
 )
 
 set(OPTICFORGE_GENERATED_DIR
@@ -283,6 +287,13 @@ file(READ
     OPTICFORGE_PROJECT_SCHEMA
 )
 
+# Read the authoritative JSON schema.
+file(READ
+    "${OPTICFORGE_MATERIAL_SCHEMA_FILE}"
+    OPTICFORGE_MATERIAL_SCHEMA
+)
+
+
 # project-schema.json is consumed through file(READ), so explicitly tell CMake
 # that changing it requires reconfiguration.
 set_property(
@@ -290,6 +301,8 @@ set_property(
     APPEND
     PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${OPTICFORGE_PROJECT_SCHEMA_FILE}"
+    "${OPTICFORGE_MATERIAL_SCHEMA_FILE}"
+
 )
 
 # Generate a C++ source file containing the schema.
@@ -298,7 +311,17 @@ configure_file(
     "${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp"
     @ONLY
 )
-set(OPTICFORGE_GENERATED_SOURCES ${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp)
+# Generate a C++ source file containing the schema.
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbeddedMaterialSchema.cpp.in"
+    "${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp"
+    @ONLY
+)
+
+set(OPTICFORGE_GENERATED_SOURCES 
+    ${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp
+    ${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp
+)
 # Add source to this project's executable.
 add_executable (opticforge ${OPTICFORGE_SOURCES} ${OPTICFORGE_SHADERS} ${OPTICFORGE_GENERATED_SOURCES})
 
