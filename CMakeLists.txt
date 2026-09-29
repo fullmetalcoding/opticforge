@@ -293,6 +293,64 @@ file(READ
     OPTICFORGE_MATERIAL_SCHEMA
 )
 
+# Encode the material schema as a byte initializer rather than substituting it
+# into one C++ string literal. The material schema is large enough to exceed
+# the single-literal limit of older MSVC toolsets.
+string(HEX
+    "${OPTICFORGE_MATERIAL_SCHEMA}"
+    OPTICFORGE_MATERIAL_SCHEMA_HEX
+)
+
+set(OPTICFORGE_MATERIAL_SCHEMA_BYTES "")
+string(LENGTH
+    "${OPTICFORGE_MATERIAL_SCHEMA_HEX}"
+    _opticforge_material_schema_hex_length
+)
+
+set(_opticforge_material_schema_hex_offset 0)
+set(_opticforge_material_schema_byte_column 0)
+
+while(
+    _opticforge_material_schema_hex_offset
+    LESS
+    _opticforge_material_schema_hex_length
+)
+    string(
+        SUBSTRING
+        "${OPTICFORGE_MATERIAL_SCHEMA_HEX}"
+        ${_opticforge_material_schema_hex_offset}
+        2
+        _opticforge_material_schema_byte
+    )
+
+    string(
+        APPEND
+        OPTICFORGE_MATERIAL_SCHEMA_BYTES
+        "0x${_opticforge_material_schema_byte}, "
+    )
+
+    math(
+        EXPR
+        _opticforge_material_schema_hex_offset
+        "${_opticforge_material_schema_hex_offset} + 2"
+    )
+
+    math(
+        EXPR
+        _opticforge_material_schema_byte_column
+        "${_opticforge_material_schema_byte_column} + 1"
+    )
+
+    if(_opticforge_material_schema_byte_column EQUAL 16)
+        string(
+            APPEND
+            OPTICFORGE_MATERIAL_SCHEMA_BYTES
+            "\n    "
+        )
+        set(_opticforge_material_schema_byte_column 0)
+    endif()
+endwhile()
+
 
 # project-schema.json is consumed through file(READ), so explicitly tell CMake
 # that changing it requires reconfiguration.
