@@ -40,7 +40,7 @@ namespace opticforge::ui
         double rearRadiusMm = -826.9;
         double rearConicConstant = 0.0;
 
-        double refractiveIndex = 1.5168;
+        std::string materialKey{ "schott:N-BK7" };
 
         glm::dvec3 positionMm{ 0.0, 0.0, 0.0 };
         glm::dvec3 orientationDegrees{ 0.0, 0.0, 0.0 };
@@ -159,7 +159,9 @@ namespace opticforge::ui
 
         bool m_rayPathsTruncated = false;
         void drawAddLensPopup(
-            telescope::TelescopeProject& project, raytracer::TraceController& control);
+            telescope::TelescopeProject& project,
+            optics::MaterialLibrary& materialLibrary,
+            raytracer::TraceController& control);
         void drawAddMirrorPopup(
             telescope::TelescopeProject& project, raytracer::TraceController& control);
 
