@@ -104,6 +104,48 @@ namespace opticforge::raytracer
             return result;
         }
 
+        const std::vector<SpectrumSample>&
+            stellarSpectrum(
+                ReferenceSpectrum spectrum)
+        {
+            static const auto o5 =
+                stellarSamples(40000.0);
+
+            static const auto b0 =
+                stellarSamples(30000.0);
+
+            static const auto a0 =
+                stellarSamples(9600.0);
+
+            static const auto f0 =
+                stellarSamples(7300.0);
+
+            static const auto g0 =
+                stellarSamples(5940.0);
+
+            static const auto k0 =
+                stellarSamples(5250.0);
+
+            static const auto m0 =
+                stellarSamples(3850.0);
+
+            switch (spectrum)
+            {
+            case ReferenceSpectrum::O5: return o5;
+            case ReferenceSpectrum::B0: return b0;
+            case ReferenceSpectrum::A0: return a0;
+            case ReferenceSpectrum::F0: return f0;
+            case ReferenceSpectrum::G0: return g0;
+            case ReferenceSpectrum::K0: return k0;
+            case ReferenceSpectrum::M0: return m0;
+            case ReferenceSpectrum::D65:
+                break;
+            }
+
+            throw std::invalid_argument(
+                "D65 is not a stellar continuum spectrum.");
+        }
+
         template <typename Range>
         double sampleWeighted(
             const Range& samples,
@@ -220,7 +262,7 @@ namespace opticforge::raytracer
 
         return
             sampleWeighted(
-                stellarSamples(temperature),
+                stellarSpectrum(spectrum),
                 u);
     }
 
