@@ -264,7 +264,12 @@ int main(int, char**)
 		[&materialLibraryController]()
 		{
 			materialLibraryController.saveLibraryAs();
-		}
+		},
+
+        [&traceController]()
+        {
+            traceController.invalidate();
+        }
 	};
 
 
