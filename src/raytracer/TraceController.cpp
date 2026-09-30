@@ -803,7 +803,10 @@ namespace opticforge::raytracer
 					uniform(rng);
 
                 const double spectralU =
-                    uniform(rng);
+                    settings.spectrumMode ==
+                        SpectrumMode::Reference
+                    ? uniform(rng)
+                    : 0.0;
 
 
 				const glm::dvec2 sample =
