@@ -55,9 +55,8 @@ namespace opticforge::renderer
 	// The callback can inspect the incoming wavelength, intensity,
 	// and other information in the path.
 	//
-	// Without a callback:
-	//   Black background -> white marks.
-	//   White background -> black marks.
+	// Without a callback, spots are colored from the incoming
+	// ray wavelength over the visible range.
 	using PsfColorFunction =
 		std::function<glm::dvec3(const raytracer::RayPath&)>;
 
