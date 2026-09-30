@@ -5,7 +5,6 @@
 
 #include <cmath>
 #include <cstddef>
-#include <numbers>
 #include <random>
 #include <stdexcept>
 
@@ -13,6 +12,12 @@
 
 namespace opticforge::raytracer
 {
+    namespace
+    {
+        constexpr double TwoPi =
+            6.28318530717958647692;
+    }
+
     RayBundle generatePupilRayBundle(
         std::size_t numberOfRays,
         double pupilDiameter,
@@ -94,8 +99,7 @@ namespace opticforge::raytracer
                 std::sqrt(u);
 
             const double theta =
-                2.0 *
-                std::numbers::pi *
+                TwoPi *
                 v;
 
             const double x =
