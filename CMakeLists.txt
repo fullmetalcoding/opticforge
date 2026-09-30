@@ -564,6 +564,20 @@ if(BUILD_TESTING)
         NAME material_library_roundtrip
         COMMAND opticforge_material_library_tests
             "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/opticforge-starter.ofmat")
+
+    add_executable(opticforge_psf_rasterizer_tests
+        tests/PsfRasterizerTests.cpp
+        src/renderer/PsfRasterizer.cpp)
+
+    target_include_directories(opticforge_psf_rasterizer_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    target_link_libraries(opticforge_psf_rasterizer_tests PRIVATE
+        glm::glm)
+
+    add_test(
+        NAME psf_wavelength_colors
+        COMMAND opticforge_psf_rasterizer_tests)
 endif()
 # -----------------------------------------------------------------------------
 #  Install and package
