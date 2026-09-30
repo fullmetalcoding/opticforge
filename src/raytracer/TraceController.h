@@ -35,6 +35,8 @@ namespace opticforge::raytracer
         ReferenceSpectrum referenceSpectrum =
             ReferenceSpectrum::D65;
 
+        std::size_t spectralSampleCount = 7;
+
         // 0 = automatic.
         //
         // Automatic mode leaves one logical CPU available for the
