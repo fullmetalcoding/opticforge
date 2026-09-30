@@ -602,7 +602,7 @@ namespace opticforge::ui {
 			lens.frontSurface.setOpticalInterface(
 				optics::OpticalInterface{
 					optics::RefractiveInterface{
-						"opticforge:vacuum",
+						"opticforge:air",
 						m_addLensDialog.materialKey
 					}
 				});
@@ -635,7 +635,7 @@ namespace opticforge::ui {
 				optics::OpticalInterface{
 					optics::RefractiveInterface{
 						m_addLensDialog.materialKey,
-						"opticforge:vacuum"
+						"opticforge:air"
 					}
 				});
 
