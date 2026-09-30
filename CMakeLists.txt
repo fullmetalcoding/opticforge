@@ -232,6 +232,7 @@ set(OPTICFORGE_SOURCES
     src/ui/MaterialLibraryWindow.cpp
     src/ui/TraceSettingsWindow.cpp
     src/raytracer/BundleGenerators.cpp
+    src/raytracer/ReferenceSpectrum.cpp
     src/raytracer/Raytracer.cpp
     src/raytracer/TraceController.cpp
     src/renderer/PsfRasterizer.h
@@ -492,6 +493,15 @@ add_custom_command(
             $<TARGET_FILE_DIR:opticforge>/shaders
 )
 
+add_custom_command(
+    TARGET opticforge POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            $<TARGET_FILE_DIR:opticforge>/materials
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/opticforge-starter.ofmat
+            $<TARGET_FILE_DIR:opticforge>/materials/opticforge-starter.ofmat
+)
+
 
 
 
@@ -558,6 +568,11 @@ endif()
 install(TARGETS opticforge RUNTIME DESTINATION .)
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/shaders/"
 DESTINATION shaders
+)
+
+install(
+    FILES "${CMAKE_SOURCE_DIR}/src/resources/opticforge-starter.ofmat"
+    DESTINATION materials
 )
  
 # SDL3.dll and anything else CMake knows we link. Vendor SDKs are invisible here
