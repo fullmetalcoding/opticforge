@@ -15,7 +15,8 @@
     "version": {
       "enum": [
         1,
-        2
+        2,
+        3
       ]
     },
     "project": {
@@ -238,7 +239,7 @@
           "$ref": "#/definitions/rectangularAperture"
         },
         {
-          "$ref" :  "#/definitions/ellipticalAperture"
+          "$ref": "#/definitions/ellipticalAperture"
         }
       ]
     },
@@ -329,6 +330,9 @@
         },
         {
           "$ref": "#/definitions/reflectiveInterface"
+        },
+        {
+          "$ref": "#/definitions/diffractionGratingInterface"
         },
         {
           "$ref": "#/definitions/detectorInterface"
@@ -494,6 +498,9 @@
           "$ref": "#/definitions/mirror"
         },
         {
+          "$ref": "#/definitions/diffractionGrating"
+        },
+        {
           "$ref": "#/definitions/detector"
         }
       ]
@@ -584,6 +591,62 @@
           }
         }
       ]
+    },
+    "diffractionGratingInterface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "groovesPerMm",
+        "order",
+        "grooveAngleDegrees"
+      ],
+      "properties": {
+        "type": {
+          "const": "diffraction-grating"
+        },
+        "groovesPerMm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "order": {
+          "type": "integer",
+          "minimum": -100,
+          "maximum": 100
+        },
+        "grooveAngleDegrees": {
+          "type": "number"
+        }
+      }
+    },
+    "diffractionGrating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "transform",
+        "surface"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "diffraction-grating"
+        },
+        "transform": {
+          "$ref": "#/definitions/transform"
+        },
+        "surface": {
+          "$ref": "#/definitions/opticalSurface"
+        }
+      }
     }
   }
 }
