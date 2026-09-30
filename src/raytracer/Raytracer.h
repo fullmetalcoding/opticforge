@@ -63,6 +63,11 @@ namespace opticforge::raytracer {
 			const optics::SurfaceHit& hit,
 			const optics::RefractiveInterface& interface) const;
 
+        OpticalResponse handleDiffractionGrating(
+            const optics::OpticalRay& incoming,
+            const RayIntersection& intersection,
+            const optics::DiffractionGratingInterface& interface) const;
+
         const optics::MaterialLibrary*
             m_materialLibrary = nullptr;
 
