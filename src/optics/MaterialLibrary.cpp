@@ -126,6 +126,39 @@ namespace opticforge::optics
                 "Wavelength must be finite and positive.");
         }
 
+        constexpr std::string_view legacyPrefix =
+            "legacy-index:";
+
+        if (
+            key.substr(
+                0,
+                legacyPrefix.size()) ==
+            legacyPrefix)
+        {
+            const std::string valueText(
+                key.substr(
+                    legacyPrefix.size()));
+
+            std::size_t parsed = 0;
+            const double value =
+                std::stod(
+                    valueText,
+                    &parsed);
+
+            if (
+                parsed != valueText.size() ||
+                !std::isfinite(value) ||
+                value <= 0.0)
+            {
+                throw std::runtime_error(
+                    "Invalid legacy constant-index material '" +
+                    std::string(key) +
+                    "'.");
+            }
+
+            return value;
+        }
+
         const Material* material =
             find(key);
 
