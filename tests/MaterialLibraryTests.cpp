@@ -30,7 +30,7 @@ namespace
     }
 }
 
-int main()
+int main(int argc, char** argv)
 {
     namespace fs = std::filesystem;
     using namespace opticforge;
@@ -90,6 +90,29 @@ int main()
     check(
         !library.add(material),
         "duplicate material key is rejected");
+
+    const double blueIndex =
+        library.refractiveIndex(
+            "unit-test:N-BK7",
+            486.13);
+
+    const double redIndex =
+        library.refractiveIndex(
+            "unit-test:N-BK7",
+            656.27);
+
+    check(
+        blueIndex > redIndex,
+        "Sellmeier material disperses blue more strongly than red");
+
+    check(
+        std::abs(
+            library.refractiveIndex(
+                "legacy-index:1.5168",
+                550.0) -
+            1.5168) <
+            1.0e-12,
+        "legacy constant-index material references remain readable");
 
     const auto document =
         project::MaterialLibrarySerializer::serialize(
@@ -196,6 +219,59 @@ int main()
             << '\n';
 
         ++failures;
+    }
+
+    if (argc > 1)
+    {
+        try
+        {
+            const auto starter =
+                project::MaterialLibraryIO::load(
+                    fs::path(argv[1]));
+
+            check(
+                starter.find(
+                    "opticforge:vacuum") != nullptr,
+                "starter library contains vacuum");
+
+            check(
+                starter.find(
+                    "schott:N-BK7") != nullptr,
+                "starter library contains N-BK7");
+
+            check(
+                starter.find(
+                    "schott:N-F2") != nullptr,
+                "starter library contains N-F2");
+
+            check(
+                starter.find(
+                    "ohara:S-FPL53") != nullptr,
+                "starter library contains S-FPL53");
+
+            check(
+                starter.find(
+                    "schott:N-LAK22") != nullptr,
+                "starter library contains N-LAK22");
+
+            const double nd =
+                starter.refractiveIndex(
+                    "schott:N-BK7",
+                    587.56);
+
+            check(
+                std::abs(nd - 1.5168) < 5.0e-4,
+                "starter N-BK7 dispersion evaluates near catalog nd");
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr
+                << "FAIL: starter library load threw: "
+                << e.what()
+                << '\n';
+
+            ++failures;
+        }
     }
 
     std::error_code removeError;
