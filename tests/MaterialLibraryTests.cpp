@@ -384,6 +384,11 @@ int main(int argc, char** argv)
 
             check(
                 starter.find(
+                    "opticforge:air") != nullptr,
+                "starter library contains standard optical air");
+
+            check(
+                starter.find(
                     "schott:N-BK7") != nullptr,
                 "starter library contains N-BK7");
 
