@@ -7,6 +7,8 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <iomanip>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -338,6 +340,38 @@ namespace opticforge::project
                 "'.");
         }
 
+        std::string deserializeMaterialReference(
+            const json& value)
+        {
+            if (value.is_string())
+                return value.get<std::string>();
+
+            if (value.is_number())
+            {
+                const double index =
+                    value.get<double>();
+
+                if (
+                    !std::isfinite(index) ||
+                    index <= 0.0)
+                {
+                    fail(
+                        "legacy refractive index must be finite and positive.");
+                }
+
+                std::ostringstream stream;
+                stream
+                    << "legacy-index:"
+                    << std::setprecision(17)
+                    << index;
+
+                return stream.str();
+            }
+
+            fail(
+                "refractive material reference must be a material key or legacy numeric index.");
+        }
+
         json serializeOpticalInterface(
             const optics::OpticalInterface& opticalInterface)
         {
@@ -416,10 +450,12 @@ namespace opticforge::project
             {
                 return optics::OpticalInterface{
                     optics::RefractiveInterface{
-                        value.at(
-                            "negativeSideMaterial").get<double>(),
-                        value.at(
-                            "positiveSideMaterial").get<double>()
+                        deserializeMaterialReference(
+                            value.at(
+                                "negativeSideMaterial")),
+                        deserializeMaterialReference(
+                            value.at(
+                                "positiveSideMaterial"))
                     }
                 };
             }
@@ -928,7 +964,9 @@ namespace opticforge::project
             document.at(
                 "version").get<int>();
 
-        if (version != FormatVersion)
+        if (
+            version != 1 &&
+            version != FormatVersion)
         {
             fail(
                 "unsupported project format version " +
