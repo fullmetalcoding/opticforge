@@ -46,6 +46,23 @@ namespace opticforge::ui
         glm::dvec3 orientationDegrees{ 0.0, 0.0, 0.0 };
         std::string name{ "Lens" }; 
     };
+    struct AddDiffractionGratingDialogState
+    {
+        double widthMm = 100.0;
+        double heightMm = 50.0;
+
+        double groovesPerMm = 600.0;
+        int order = 1;
+
+        // Measured from local +Y toward local +X.
+        double grooveAngleDegrees = 0.0;
+
+        glm::dvec3 positionMm{ 0.0, 0.0, 0.0 };
+        glm::dvec3 orientationDegrees{ 0.0, 0.0, 0.0 };
+
+        std::string name{ "Diffraction Grating" };
+    };
+
     enum class MirrorCurvature
     {
         Concave,
@@ -165,8 +182,13 @@ namespace opticforge::ui
         void drawAddMirrorPopup(
             telescope::TelescopeProject& project, raytracer::TraceController& control);
 
+        void drawAddDiffractionGratingPopup(
+            telescope::TelescopeProject& project,
+            raytracer::TraceController& control);
+
 		AddLensDialogState m_addLensDialog;
         AddMirrorDialogState m_addMirrorDialog;
+        AddDiffractionGratingDialogState m_addDiffractionGratingDialog;
 
         void drawPsfTraceWindow();
 
