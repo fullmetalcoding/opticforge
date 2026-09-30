@@ -217,7 +217,10 @@ namespace opticforge::ui {
 
 
 		drawTraceSettingsWindow(project, traceController, traceSettings);
-		drawAddLensPopup(project, traceController);
+		drawAddLensPopup(
+			project,
+			materialLibrary,
+			traceController);
 		drawAddMirrorPopup(project, traceController);
 		drawPsfTraceWindow();
 		drawPrimitiveManipulationWindow(
@@ -230,7 +233,9 @@ namespace opticforge::ui {
 			materialCommands);
 	}
 	void UI::drawAddLensPopup(
-		telescope::TelescopeProject& project, raytracer::TraceController& control)
+		telescope::TelescopeProject& project,
+		optics::MaterialLibrary& materialLibrary,
+		raytracer::TraceController& control)
 	{
 		if (!ImGui::BeginPopupModal(
 			"AddLens",
@@ -323,12 +328,80 @@ namespace opticforge::ui {
 		ImGui::TextUnformatted("Optical Properties");
 		ImGui::Separator();
 
-		ImGui::InputDouble(
-			"Refractive Index",
-			&m_addLensDialog.refractiveIndex,
-			0.001,
-			0.01,
-			"%.6f");
+        const optics::Material* selectedMaterial =
+            materialLibrary.find(
+                m_addLensDialog.materialKey);
+
+        if (
+            !selectedMaterial ||
+            !std::holds_alternative<
+                optics::IsotropicOptics>(
+                    selectedMaterial->optics))
+        {
+            for (
+                const auto& material :
+                materialLibrary.materials())
+            {
+                if (std::holds_alternative<
+                    optics::IsotropicOptics>(
+                        material.optics))
+                {
+                    m_addLensDialog.materialKey =
+                        material.key;
+
+                    selectedMaterial =
+                        &material;
+
+                    break;
+                }
+            }
+        }
+
+        const char* materialPreview =
+            selectedMaterial
+            ? selectedMaterial->name.c_str()
+            : "No isotropic materials loaded";
+
+        if (ImGui::BeginCombo(
+            "Material",
+            materialPreview))
+        {
+            for (
+                const auto& material :
+                materialLibrary.materials())
+            {
+                if (!std::holds_alternative<
+                    optics::IsotropicOptics>(
+                        material.optics))
+                {
+                    continue;
+                }
+
+                const bool selected =
+                    material.key ==
+                    m_addLensDialog.materialKey;
+
+                if (ImGui::Selectable(
+                    material.name.c_str(),
+                    selected))
+                {
+                    m_addLensDialog.materialKey =
+                        material.key;
+                }
+
+                if (selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+
+            ImGui::EndCombo();
+        }
+
+        if (selectedMaterial)
+        {
+            ImGui::TextDisabled(
+                "%s",
+                selectedMaterial->key.c_str());
+        }
 
 		ImGui::Spacing();
 
@@ -435,7 +508,7 @@ namespace opticforge::ui {
 			std::isfinite(m_addLensDialog.diameterMm) &&
 			std::isfinite(m_addLensDialog.thicknessMm) &&
 			std::isfinite(m_addLensDialog.centralHoleMm) &&
-			std::isfinite(m_addLensDialog.refractiveIndex) &&
+            selectedMaterial != nullptr &&
 
 			m_addLensDialog.diameterMm > 0.0 &&
 			m_addLensDialog.thicknessMm > 0.0 &&
@@ -443,8 +516,6 @@ namespace opticforge::ui {
 			m_addLensDialog.centralHoleMm >= 0.0 &&
 			m_addLensDialog.centralHoleMm <
 			m_addLensDialog.diameterMm &&
-
-			m_addLensDialog.refractiveIndex > 0.0 &&
 
 			(
 				m_addLensDialog.frontPlane ||
@@ -531,8 +602,8 @@ namespace opticforge::ui {
 			lens.frontSurface.setOpticalInterface(
 				optics::OpticalInterface{
 					optics::RefractiveInterface{
-						1.0,
-						m_addLensDialog.refractiveIndex
+						"opticforge:vacuum",
+						m_addLensDialog.materialKey
 					}
 				});
 
@@ -563,8 +634,8 @@ namespace opticforge::ui {
 			lens.rearSurface.setOpticalInterface(
 				optics::OpticalInterface{
 					optics::RefractiveInterface{
-						m_addLensDialog.refractiveIndex,
-						1.0
+						m_addLensDialog.materialKey,
+						"opticforge:vacuum"
 					}
 				});
 
