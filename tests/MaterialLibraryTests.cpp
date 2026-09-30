@@ -244,10 +244,15 @@ int main(int argc, char** argv)
         raytracer::SpectrumMode::Reference;
     referenceSpectrum.reference =
         raytracer::ReferenceSpectrum::D65;
+    referenceSpectrum.spectralSampleCount =
+        7;
+
+    const std::size_t pupilSamples =
+        32;
 
     const auto referenceBundle =
         raytracer::generatePupilRayBundle(
-            256,
+            pupilSamples,
             100.0,
             10.0,
             0.0,
@@ -256,37 +261,75 @@ int main(int argc, char** argv)
             referenceSpectrum,
             1234);
 
-    bool sawDifferentWavelength =
+    check(
+        referenceBundle.size() ==
+            pupilSamples *
+            referenceSpectrum.spectralSampleCount,
+        "reference-spectrum bundle expands each pupil sample across wavelengths");
+
+    bool sharedOrigin =
+        referenceBundle.size() >=
+        referenceSpectrum.spectralSampleCount;
+
+    double firstGroupWeight =
+        0.0;
+
+    bool firstGroupHasDifferentWavelengths =
         false;
 
-    if (!referenceBundle.empty())
+    if (sharedOrigin)
     {
+        const auto& origin =
+            referenceBundle.front().ray.origin;
+
         const double firstWavelength =
             referenceBundle.front().wavelength;
 
-        for (const auto& ray : referenceBundle)
+        for (
+            std::size_t i = 0;
+            i < referenceSpectrum.spectralSampleCount;
+            ++i)
         {
+            const auto& ray =
+                referenceBundle[i];
+
+            sharedOrigin =
+                sharedOrigin &&
+                ray.ray.origin.x == origin.x &&
+                ray.ray.origin.y == origin.y &&
+                ray.ray.origin.z == origin.z;
+
+            firstGroupWeight +=
+                ray.intensity;
+
             if (
                 std::abs(
                     ray.wavelength -
                     firstWavelength) >
                 1.0e-12)
             {
-                sawDifferentWavelength =
+                firstGroupHasDifferentWavelengths =
                     true;
-
-                break;
             }
         }
     }
 
     check(
-        sawDifferentWavelength,
-        "reference-spectrum bundle contains multiple wavelengths");
+        sharedOrigin,
+        "all wavelengths reuse the same Monte Carlo pupil point");
+
+    check(
+        firstGroupHasDifferentWavelengths,
+        "one pupil point is traced at multiple wavelengths");
+
+    check(
+        std::abs(firstGroupWeight - 1.0) <
+            1.0e-12,
+        "spectral ray intensities are normalized per pupil point");
 
     const auto referenceBundleRepeat =
         raytracer::generatePupilRayBundle(
-            256,
+            pupilSamples,
             100.0,
             10.0,
             0.0,
@@ -305,40 +348,70 @@ int main(int argc, char** argv)
         i < referenceBundle.size();
         ++i)
     {
+        const auto& a =
+            referenceBundle[i];
+
+        const auto& b =
+            referenceBundleRepeat[i];
+
         deterministic =
-            referenceBundle[i].wavelength ==
-                referenceBundleRepeat[i].wavelength &&
-            referenceBundle[i].ray.origin ==
-                referenceBundleRepeat[i].ray.origin;
+            a.wavelength == b.wavelength &&
+            a.intensity == b.intensity &&
+            a.ray.origin.x == b.ray.origin.x &&
+            a.ray.origin.y == b.ray.origin.y &&
+            a.ray.origin.z == b.ray.origin.z;
     }
 
     check(
         deterministic,
         "reference-spectrum bundle is deterministic for a fixed seed");
 
-    const double d65Sample =
-        raytracer::sampleReferenceSpectrum(
+    const auto d65Samples =
+        raytracer::buildReferenceSpectrum(
             raytracer::ReferenceSpectrum::D65,
-            0.5);
+            7);
+
+    double d65WeightSum =
+        0.0;
+
+    for (const auto& sample : d65Samples)
+        d65WeightSum += sample.weight;
 
     check(
-        d65Sample >= 380.0 &&
-        d65Sample <= 780.0,
-        "D65 sampler returns visible wavelengths");
+        d65Samples.size() == 7 &&
+        std::abs(d65WeightSum - 1.0) <
+            1.0e-12,
+        "D65 discrete spectral weights are normalized");
 
-    const double a0Median =
-        raytracer::sampleReferenceSpectrum(
+    const auto a0Samples =
+        raytracer::buildReferenceSpectrum(
             raytracer::ReferenceSpectrum::A0,
-            0.5);
+            15);
 
-    const double m0Median =
-        raytracer::sampleReferenceSpectrum(
+    const auto m0Samples =
+        raytracer::buildReferenceSpectrum(
             raytracer::ReferenceSpectrum::M0,
-            0.5);
+            15);
+
+    const auto weightedMeanWavelength =
+        [](const auto& samples)
+        {
+            double result = 0.0;
+
+            for (const auto& sample : samples)
+            {
+                result +=
+                    sample.wavelengthNm *
+                    sample.weight;
+            }
+
+            return result;
+        };
 
     check(
-        a0Median < m0Median,
-        "hotter stellar continuum samples bluer wavelengths");
+        weightedMeanWavelength(a0Samples) <
+        weightedMeanWavelength(m0Samples),
+        "hotter stellar continuum has a bluer weighted mean wavelength");
 
     const fs::path path =
         fs::temp_directory_path() /
