@@ -499,9 +499,30 @@ namespace opticforge::raytracer {
 		const optics::SurfaceHit& hit,
 		const optics::RefractiveInterface& interface) const
 	{
-		// Despite their names, these currently store indices, not IDs.
-		const double nNegative = interface.negativeSideMaterial;
-		const double nPositive = interface.positiveSideMaterial;
+		if (!m_materialLibrary)
+		{
+			return { std::nullopt, RayTermination::InvalidState };
+		}
+
+        double nNegative = 0.0;
+        double nPositive = 0.0;
+
+        try
+        {
+            nNegative =
+                m_materialLibrary->refractiveIndex(
+                    interface.negativeSideMaterial,
+                    incoming.wavelength);
+
+            nPositive =
+                m_materialLibrary->refractiveIndex(
+                    interface.positiveSideMaterial,
+                    incoming.wavelength);
+        }
+        catch (const std::exception&)
+        {
+            return { std::nullopt, RayTermination::InvalidState };
+        }
 
 		if (!std::isfinite(nNegative) || nNegative <= 0.0
 			|| !std::isfinite(nPositive) || nPositive <= 0.0)
