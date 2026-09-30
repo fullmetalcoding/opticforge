@@ -16,6 +16,8 @@
 
 #include "telescope/TelescopeProject.h"
 #include "raytracer/TraceResult.h"
+#include "raytracer/ReferenceSpectrum.h"
+#include "optics/MaterialLibrary.h"
 
 namespace opticforge::raytracer
 {
@@ -25,7 +27,13 @@ namespace opticforge::raytracer
         std::uint32_t randomSeed = 1;
         std::uint32_t maxInteractions = 1000;
 
+        SpectrumMode spectrumMode =
+            SpectrumMode::Monochromatic;
+
         double wavelengthNm = 550.0;
+
+        ReferenceSpectrum referenceSpectrum =
+            ReferenceSpectrum::D65;
 
         // 0 = automatic.
         //
@@ -67,6 +75,7 @@ namespace opticforge::raytracer
 
         telescope::LaunchPupil launchPupil;
         telescope::ObservationPlane observationPlane;
+        optics::MaterialLibrary materialLibrary;
 
         TraceSettings settings;
 
@@ -141,6 +150,7 @@ namespace opticforge::raytracer
         // 3. Start a pending trace when eligible.
         void update(
             const telescope::TelescopeProject& project,
+            const optics::MaterialLibrary& materialLibrary,
             const TraceSettings& settings);
 
 
@@ -216,6 +226,7 @@ namespace opticforge::raytracer
 
         void startJob(
             const telescope::TelescopeProject& project,
+            const optics::MaterialLibrary& materialLibrary,
             const TraceSettings& settings);
 
 
