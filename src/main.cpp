@@ -24,9 +24,11 @@
 #include "ui/UI.h"
 #include "project/ProjectController.h"
 #include "project/MaterialLibraryController.h"
+#include "project/MaterialLibraryIO.h"
 #include "optics/MaterialLibrary.h"
 
 #include <iostream>
+#include <filesystem>
 #include <algorithm>
 #include <optional>
 #include <utility>
@@ -141,6 +143,32 @@ int main(int, char**)
 	// ------------------------------------------------------------
 	opticforge::telescope::TelescopeProject project;
 	opticforge::optics::MaterialLibrary materialLibrary;
+
+    try
+    {
+        const char* basePath =
+            SDL_GetBasePath();
+
+        if (basePath)
+        {
+            const std::filesystem::path starterPath =
+                std::filesystem::path(basePath) /
+                "materials" /
+                "opticforge-starter.ofmat";
+
+            materialLibrary =
+                opticforge::project::MaterialLibraryIO::load(
+                    starterPath);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        SDL_LogWarn(
+            SDL_LOG_CATEGORY_APPLICATION,
+            "Unable to load starter material library: %s",
+            e.what());
+    }
+
 	// Persistent application state:
 	std::uint64_t displayedTraceVersion = 0;
 
@@ -215,7 +243,11 @@ int main(int, char**)
 
 	opticforge::project::MaterialLibraryController materialLibraryController(
 		window,
-		materialLibrary);
+		materialLibrary,
+        [&traceController]()
+        {
+            traceController.invalidate();
+        });
 
 	opticforge::ui::MaterialLibraryCommands materialLibraryCommands
 	{
@@ -647,7 +679,10 @@ int main(int, char**)
 		traceController.setResultsNeeded(
 			main_ui.showPsf() || main_ui.showRays());
 
-		traceController.update(project, traceSettings);
+		traceController.update(
+            project,
+            materialLibrary,
+            traceSettings);
 		if (main_ui.showRays() &&
 			(traceController.resultVersion() != displayedRayTraceVersion ||
 				main_ui.rayPathGeometryVersion() != displayedRayGeometryVersion))
