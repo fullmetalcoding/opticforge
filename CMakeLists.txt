@@ -520,7 +520,8 @@ if(BUILD_TESTING)
         src/optics/Transform.cpp
         src/optics/Aperture.cpp
         src/optics/OpticalSurface.cpp
-        src/optics/OpticalInterface.cpp)
+        src/optics/OpticalInterface.cpp
+        src/optics/MaterialLibrary.cpp)
     target_include_directories(opticforge_raytracer_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(opticforge_raytracer_tests PRIVATE glm::glm)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -559,7 +560,8 @@ if(BUILD_TESTING)
 
     add_test(
         NAME material_library_roundtrip
-        COMMAND opticforge_material_library_tests)
+        COMMAND opticforge_material_library_tests
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/opticforge-starter.ofmat")
 endif()
 # -----------------------------------------------------------------------------
 #  Install and package
