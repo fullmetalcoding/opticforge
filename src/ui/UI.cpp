@@ -94,6 +94,7 @@ namespace opticforge::ui {
 		//Super janky. Refactor later to have an active menu dialog state. 
 		bool openAddLensPopup = false;
 		bool openAddMirrorPopup = false;
+        bool openAddDiffractionGratingPopup = false;
 		bool openAboutPopup = false; 
 
 
@@ -138,6 +139,9 @@ namespace opticforge::ui {
 					if (ImGui::MenuItem("Mirror...")) {
 						openAddMirrorPopup = true;
 					}
+                    if (ImGui::MenuItem("Diffraction Grating...")) {
+                        openAddDiffractionGratingPopup = true;
+                    }
 
 					ImGui::EndMenu();
 				}
@@ -214,6 +218,9 @@ namespace opticforge::ui {
 		else if (openAddMirrorPopup) {
 			ImGui::OpenPopup("AddMirror");
 		}
+        else if (openAddDiffractionGratingPopup) {
+            ImGui::OpenPopup("AddDiffractionGrating");
+        }
 
 
 		drawTraceSettingsWindow(project, traceController, traceSettings);
@@ -222,6 +229,9 @@ namespace opticforge::ui {
 			materialLibrary,
 			traceController);
 		drawAddMirrorPopup(project, traceController);
+        drawAddDiffractionGratingPopup(
+            project,
+            traceController);
 		drawPsfTraceWindow();
 		drawPrimitiveManipulationWindow(
 			project,
@@ -1381,6 +1391,175 @@ namespace opticforge::ui {
 
 		ImGui::EndPopup();
 	}
+    void UI::drawAddDiffractionGratingPopup(
+        telescope::TelescopeProject& project,
+        raytracer::TraceController& control)
+    {
+        if (!ImGui::BeginPopupModal(
+            "AddDiffractionGrating",
+            nullptr,
+            ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            return;
+        }
+
+        ImGui::TextUnformatted(
+            "Planar Reflective Diffraction Grating");
+        ImGui::Separator();
+
+        ImGui::InputText(
+            "Name",
+            &m_addDiffractionGratingDialog.name);
+
+        ImGui::InputDouble(
+            "Width (mm)",
+            &m_addDiffractionGratingDialog.widthMm,
+            1.0,
+            10.0,
+            "%.3f");
+
+        ImGui::InputDouble(
+            "Height (mm)",
+            &m_addDiffractionGratingDialog.heightMm,
+            1.0,
+            10.0,
+            "%.3f");
+
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Grating");
+        ImGui::Separator();
+
+        ImGui::InputDouble(
+            "Grooves / mm",
+            &m_addDiffractionGratingDialog.groovesPerMm,
+            10.0,
+            100.0,
+            "%.3f");
+
+        ImGui::InputInt(
+            "Diffraction order",
+            &m_addDiffractionGratingDialog.order,
+            1,
+            1);
+
+        ImGui::InputDouble(
+            "Groove angle (deg)",
+            &m_addDiffractionGratingDialog.grooveAngleDegrees,
+            1.0,
+            10.0,
+            "%.3f");
+
+        ImGui::TextDisabled(
+            "Groove angle is measured from local +Y toward local +X.");
+
+        ImGui::TextDisabled(
+            "Order 0 produces specular reflection.");
+
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Position");
+        ImGui::Separator();
+
+        ImGui::InputDouble(
+            "X (mm)",
+            &m_addDiffractionGratingDialog.positionMm.x,
+            1.0,
+            10.0,
+            "%.3f");
+
+        ImGui::InputDouble(
+            "Y (mm)",
+            &m_addDiffractionGratingDialog.positionMm.y,
+            1.0,
+            10.0,
+            "%.3f");
+
+        ImGui::InputDouble(
+            "Z (mm)",
+            &m_addDiffractionGratingDialog.positionMm.z,
+            1.0,
+            10.0,
+            "%.3f");
+
+        drawOrientationInputs(
+            "GratingOrientation",
+            m_addDiffractionGratingDialog.orientationDegrees);
+
+        const bool valid =
+            std::isfinite(
+                m_addDiffractionGratingDialog.widthMm) &&
+            std::isfinite(
+                m_addDiffractionGratingDialog.heightMm) &&
+            std::isfinite(
+                m_addDiffractionGratingDialog.groovesPerMm) &&
+            std::isfinite(
+                m_addDiffractionGratingDialog.grooveAngleDegrees) &&
+            m_addDiffractionGratingDialog.widthMm > 0.0 &&
+            m_addDiffractionGratingDialog.heightMm > 0.0 &&
+            m_addDiffractionGratingDialog.groovesPerMm > 0.0 &&
+            m_addDiffractionGratingDialog.order >= -100 &&
+            m_addDiffractionGratingDialog.order <= 100 &&
+            validOrientation(
+                m_addDiffractionGratingDialog.orientationDegrees);
+
+        if (!valid)
+        {
+            ImGui::TextDisabled(
+                "Dimensions and groove density must be positive; "
+                "order must be between -100 and 100.");
+
+            ImGui::BeginDisabled();
+        }
+
+        if (ImGui::Button("Add"))
+        {
+            telescope::DiffractionGrating grating;
+
+            grating.transform.setPosition(
+                m_addDiffractionGratingDialog.positionMm);
+
+            grating.transform.setEulerDegrees(
+                m_addDiffractionGratingDialog.orientationDegrees);
+
+            grating.surface.setGeometry(
+                optics::PlaneGeometry{});
+
+            grating.surface.setAperture(
+                optics::Aperture{
+                    optics::RectangularAperture{
+                        m_addDiffractionGratingDialog.widthMm,
+                        m_addDiffractionGratingDialog.heightMm
+                    }
+                });
+
+            grating.surface.setOpticalInterface(
+                optics::OpticalInterface{
+                    optics::DiffractionGratingInterface{
+                        m_addDiffractionGratingDialog.groovesPerMm,
+                        m_addDiffractionGratingDialog.order,
+                        m_addDiffractionGratingDialog.grooveAngleDegrees
+                    }
+                });
+
+            project.addPrimitive(
+                std::move(grating),
+                m_addDiffractionGratingDialog.name);
+
+            control.invalidate();
+
+            ImGui::CloseCurrentPopup();
+        }
+
+        if (!valid)
+            ImGui::EndDisabled();
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Cancel"))
+            ImGui::CloseCurrentPopup();
+
+        ImGui::EndPopup();
+    }
+
 	void UI::drawPsfTraceWindow()
 	{
 		if (!m_showPsfTrace)
@@ -1679,6 +1858,13 @@ namespace opticforge::ui {
 						{
 							return "Mirror";
 						}
+                        else if constexpr (
+                            std::is_same_v<
+                            T,
+                            telescope::DiffractionGrating>)
+                        {
+                            return "Diffraction Grating";
+                        }
 						else if constexpr (
 							std::is_same_v<
 							T,
