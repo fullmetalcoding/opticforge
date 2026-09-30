@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "PsfRasterizer.h"
+#include "optics/Colorimetry.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,100 +27,7 @@ namespace opticforge::renderer
 			double weight;
 		};
 
-        glm::dvec3 wavelengthColor(
-            double wavelengthNm)
-        {
-            if (
-                !std::isfinite(wavelengthNm) ||
-                wavelengthNm < 380.0 ||
-                wavelengthNm > 780.0)
-            {
-                return glm::dvec3(0.5);
-            }
 
-            double r = 0.0;
-            double g = 0.0;
-            double b = 0.0;
-
-            if (wavelengthNm < 440.0)
-            {
-                r =
-                    -(wavelengthNm - 440.0) /
-                    (440.0 - 380.0);
-                b = 1.0;
-            }
-            else if (wavelengthNm < 490.0)
-            {
-                g =
-                    (wavelengthNm - 440.0) /
-                    (490.0 - 440.0);
-                b = 1.0;
-            }
-            else if (wavelengthNm < 510.0)
-            {
-                g = 1.0;
-                b =
-                    -(wavelengthNm - 510.0) /
-                    (510.0 - 490.0);
-            }
-            else if (wavelengthNm < 580.0)
-            {
-                r =
-                    (wavelengthNm - 510.0) /
-                    (580.0 - 510.0);
-                g = 1.0;
-            }
-            else if (wavelengthNm < 645.0)
-            {
-                r = 1.0;
-                g =
-                    -(wavelengthNm - 645.0) /
-                    (645.0 - 580.0);
-            }
-            else
-            {
-                r = 1.0;
-            }
-
-            double factor = 1.0;
-
-            if (wavelengthNm < 420.0)
-            {
-                factor =
-                    0.3 +
-                    0.7 *
-                    (wavelengthNm - 380.0) /
-                    40.0;
-            }
-            else if (wavelengthNm > 700.0)
-            {
-                factor =
-                    0.3 +
-                    0.7 *
-                    (780.0 - wavelengthNm) /
-                    80.0;
-            }
-
-            constexpr double gamma =
-                0.8;
-
-            const auto channel =
-                [factor, gamma](double value)
-                {
-                    return
-                        value <= 0.0
-                        ? 0.0
-                        : std::pow(
-                            value * factor,
-                            gamma);
-                };
-
-            return {
-                channel(r),
-                channel(g),
-                channel(b)
-            };
-        }
 	}
 
 	PsfImage rasterizePsf(
@@ -188,12 +96,46 @@ namespace opticforge::renderer
 			if (!finite(local))
 				continue;
 
-			const auto rgb = color
-				? color(path)
-				: wavelengthColor(
-                    hit.incoming.wavelength);
+            glm::dvec3 sampleColor;
 
-			if (!finite(rgb))
+            if (color)
+            {
+                sampleColor =
+                    glm::clamp(
+                        color(path),
+                        0.0,
+                        1.0);
+            }
+            else if (
+                hit.incoming.cieXyzPerUnitPower &&
+                finite(
+                    *hit.incoming.cieXyzPerUnitPower))
+            {
+                sampleColor =
+                    *hit.incoming.cieXyzPerUnitPower;
+            }
+            else
+            {
+                sampleColor =
+                    optics::cie1931Xyz(
+                        hit.incoming.wavelength);
+
+                // Keep non-visible diagnostic rays visible instead of
+                // silently dropping them from a spot diagram.
+                if (
+                    sampleColor.x <= 0.0 &&
+                    sampleColor.y <= 0.0 &&
+                    sampleColor.z <= 0.0)
+                {
+                    sampleColor =
+                        glm::dvec3(
+                            0.95047,
+                            1.0,
+                            1.08883);
+                }
+            }
+
+			if (!finite(sampleColor))
 				continue;
 
 			const glm::dvec2 p(local.x, local.y);
@@ -210,7 +152,7 @@ namespace opticforge::renderer
 
 			samples.push_back({
 				p,
-				glm::clamp(rgb, 0.0, 1.0),
+				sampleColor,
 				hit.incoming.intensity
 				});
 		}
@@ -278,8 +220,10 @@ namespace opticforge::renderer
 		const std::size_t count =
 			static_cast<std::size_t>(s.width) * s.height;
 
-		// XYZ = weighted RGB sum.
-		// W   = total intensity.
+        // For the default wavelength coloring path, XYZ stores a weighted
+        // CIE XYZ sum. With a custom callback it stores the callback's
+        // display-RGB values so existing customization semantics are retained.
+		// W = total ray intensity.
 		std::vector<glm::dvec4> accum(
 			count,
 			glm::dvec4(0.0));
@@ -431,17 +375,77 @@ namespace opticforge::renderer
 						0.0,
 						1.0);
 
-				rgb =
-					background * (1.0 - coverage) +
-					glm::dvec3(a) / a.w * coverage;
+                if (color)
+                {
+                    // Preserve the legacy contract for explicitly supplied
+                    // display-RGB callbacks.
+                    rgb =
+                        background * (1.0 - coverage) +
+                        glm::clamp(
+                            glm::dvec3(a) / a.w,
+                            0.0,
+                            1.0) *
+                        coverage;
+                }
+                else
+                {
+                    // Average XYZ describes the spectrum/chromaticity at this
+                    // pixel; intensity separately determines spot brightness.
+                    const glm::dvec3 meanXyz =
+                        glm::dvec3(a) /
+                        a.w;
+
+                    glm::dvec3 linearColor =
+                        optics::xyzToLinearSrgb(
+                            meanXyz);
+
+                    linearColor =
+                        glm::max(
+                            linearColor,
+                            glm::dvec3(0.0));
+
+                    const double colorPeak =
+                        std::max(
+                            linearColor.x,
+                            std::max(
+                                linearColor.y,
+                                linearColor.z));
+
+                    if (
+                        std::isfinite(colorPeak) &&
+                        colorPeak > 0.0)
+                    {
+                        linearColor /=
+                            colorPeak;
+                    }
+                    else
+                    {
+                        linearColor =
+                            glm::dvec3(1.0);
+                    }
+
+                    const glm::dvec3 linearOutput =
+                        background * (1.0 - coverage) +
+                        linearColor * coverage;
+
+                    rgb =
+                        optics::linearToSrgb(
+                            glm::clamp(
+                                linearOutput,
+                                0.0,
+                                1.0));
+                }
 			}
 
-			for (int c = 0; c < 3; ++c)
+			for (int channel = 0; channel < 3; ++channel)
 			{
-				image.rgba[i * 4 + c] =
+				image.rgba[i * 4 + channel] =
 					static_cast<std::uint8_t>(
 						std::lround(
-							std::clamp(rgb[c], 0.0, 1.0) *
+							std::clamp(
+                                rgb[channel],
+                                0.0,
+                                1.0) *
 							255.0));
 			}
 
