@@ -18,12 +18,30 @@
         "type": "isotropic",
         "refractiveIndex": {
           "type": "constant",
-          "refractiveIndex": 1.0
+          "refractiveIndex": 1
         }
       },
       "tags": [
         "reference-medium",
         "built-in"
+      ]
+    },
+    {
+      "key": "opticforge:air",
+      "name": "Standard Optical Air",
+      "description": "Optical-design reference air. Uses n = 1 so catalog glass dispersion values can be used in their conventional relative-to-air form.",
+      "category": "gas",
+      "optics": {
+        "type": "isotropic",
+        "refractiveIndex": {
+          "type": "constant",
+          "refractiveIndex": 1
+        }
+      },
+      "tags": [
+        "reference-medium",
+        "built-in",
+        "air"
       ]
     },
     {
@@ -55,8 +73,8 @@
           ],
           "coefficientWavelengthUnit": "um",
           "validWavelengthNm": {
-            "min": 365.0,
-            "max": 2325.0
+            "min": 365,
+            "max": 2325
           }
         }
       },
@@ -95,8 +113,8 @@
           ],
           "coefficientWavelengthUnit": "um",
           "validWavelengthNm": {
-            "min": 365.0,
-            "max": 2325.0
+            "min": 365,
+            "max": 2325
           }
         }
       },
@@ -125,7 +143,7 @@
           "type": "sellmeier",
           "B": [
             0.983532327,
-            0.0695688140,
+            0.069568814,
             1.11409238
           ],
           "C": [
@@ -135,8 +153,8 @@
           ],
           "coefficientWavelengthUnit": "um",
           "validWavelengthNm": {
-            "min": 365.0,
-            "max": 2325.0
+            "min": 365,
+            "max": 2325
           }
         }
       },
@@ -165,19 +183,19 @@
         "refractiveIndex": {
           "type": "sellmeier",
           "B": [
-            1.142297810,
+            1.14229781,
             0.535138441,
-            1.040883850
+            1.04088385
           ],
           "C": [
             0.005857786,
             0.0198546147,
-            100.83401700
+            100.834017
           ],
           "coefficientWavelengthUnit": "um",
           "validWavelengthNm": {
-            "min": 365.0,
-            "max": 2325.0
+            "min": 365,
+            "max": 2325
           }
         }
       },
