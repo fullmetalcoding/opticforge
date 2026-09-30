@@ -4,6 +4,7 @@
 #include "optics/MaterialLibrary.h"
 #include "project/MaterialLibraryIO.h"
 #include "project/MaterialLibrarySerializer.h"
+#include "raytracer/ReferenceSpectrum.h"
 
 #include <cmath>
 #include <filesystem>
@@ -191,6 +192,30 @@ int main(int argc, char** argv)
             }
         }
     }
+
+    const double d65Sample =
+        raytracer::sampleReferenceSpectrum(
+            raytracer::ReferenceSpectrum::D65,
+            0.5);
+
+    check(
+        d65Sample >= 380.0 &&
+        d65Sample <= 780.0,
+        "D65 sampler returns visible wavelengths");
+
+    const double a0Median =
+        raytracer::sampleReferenceSpectrum(
+            raytracer::ReferenceSpectrum::A0,
+            0.5);
+
+    const double m0Median =
+        raytracer::sampleReferenceSpectrum(
+            raytracer::ReferenceSpectrum::M0,
+            0.5);
+
+    check(
+        a0Median < m0Median,
+        "hotter stellar continuum samples bluer wavelengths");
 
     const fs::path path =
         fs::temp_directory_path() /
