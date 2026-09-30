@@ -183,7 +183,7 @@ namespace opticforge::ui
                     };
 
                     if (ImGui::Combo(
-                        "Spectral samples",
+                        "Spectral bands",
                         &sampleCountIndex,
                         sampleCountLabels,
                         IM_ARRAYSIZE(sampleCountLabels)))
@@ -201,13 +201,13 @@ namespace opticforge::ui
                         settings.spectralSampleCount;
 
                     ImGui::TextDisabled(
-                        "%zu pupil samples x %zu wavelengths = %zu traced rays.",
+                        "%zu pupil samples x %zu spectral bands = %zu traced rays.",
                         settings.rayCount,
                         settings.spectralSampleCount,
                         totalRays);
 
                     ImGui::TextDisabled(
-                        "Each wavelength reuses the same Monte Carlo pupil points.");
+                        "Each band reuses the same Monte Carlo pupil points.");
                 }
 
                 auto pupil = project.getLaunchPupil();
