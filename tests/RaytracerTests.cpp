@@ -112,6 +112,141 @@ int main()
                    {0, 0, 1}, true);
     }
 
+    // Refractive interfaces must resolve wavelength-dependent material indices.
+    optics::MaterialLibrary materials;
+
+    optics::Material vacuum;
+    vacuum.key = "opticforge:vacuum";
+    vacuum.name = "Vacuum";
+    vacuum.optics =
+        optics::IsotropicOptics{
+            optics::ConstantDispersion{ 1.0, std::nullopt },
+            std::nullopt
+        };
+
+    check(
+        materials.add(vacuum),
+        "test vacuum material added");
+
+    optics::Material bk7;
+    bk7.key = "test:N-BK7";
+    bk7.name = "N-BK7";
+
+    optics::SellmeierDispersion bk7Dispersion;
+    bk7Dispersion.B =
+        {
+            1.03961212,
+            0.231792344,
+            1.01046945
+        };
+
+    bk7Dispersion.C =
+        {
+            0.00600069867,
+            0.0200179144,
+            103.560653
+        };
+
+    bk7.optics =
+        optics::IsotropicOptics{
+            bk7Dispersion,
+            std::nullopt
+        };
+
+    check(
+        materials.add(bk7),
+        "test N-BK7 material added");
+
+    telescope::Lens refractiveLens;
+    refractiveLens.centerThickness = 100.0;
+    refractiveLens.frontSurface.setGeometry(
+        optics::PlaneGeometry{});
+    refractiveLens.frontSurface.aperture().setCircular(
+        100.0);
+    refractiveLens.frontSurface.opticalInterface().setRefractive(
+        "opticforge:vacuum",
+        "test:N-BK7");
+
+    refractiveLens.rearSurface.setGeometry(
+        optics::PlaneGeometry{});
+    refractiveLens.rearSurface.aperture().setCircular(
+        100.0);
+    refractiveLens.rearSurface.opticalInterface().setRefractive(
+        "test:N-BK7",
+        "opticforge:vacuum");
+
+    telescope::ObservationPlane refractivePlane;
+    refractivePlane.transform.setPosition(
+        { 0.0, 0.0, 1000.0 });
+
+    const telescope::PrimitiveRecord refractiveRecord{
+        50,
+        refractiveLens,
+        "test refractive lens"
+    };
+
+    const auto traceWavelength =
+        [&](double wavelength)
+        {
+            optics::OpticalRay ray;
+            ray.ray =
+                optics::Ray(
+                    { 0.0, 0.0, -10.0 },
+                    glm::normalize(
+                        glm::dvec3(
+                            0.2,
+                            0.0,
+                            1.0)));
+            ray.wavelength = wavelength;
+
+            return
+                raytracer::RayTracer{
+                    materials
+                }.traceRay(
+                    ray,
+                    { refractiveRecord },
+                    refractivePlane,
+                    1);
+        };
+
+    const auto bluePath =
+        traceWavelength(486.13);
+
+    const auto redPath =
+        traceWavelength(656.27);
+
+    check(
+        bluePath.interactions.size() == 1 &&
+        redPath.interactions.size() == 1,
+        "chromatic test rays hit refractive surface");
+
+    if (
+        bluePath.interactions.size() == 1 &&
+        redPath.interactions.size() == 1 &&
+        bluePath.interactions.front().outgoing &&
+        redPath.interactions.front().outgoing)
+    {
+        const double blueX =
+            std::abs(
+                bluePath.interactions.front().
+                outgoing->ray.direction.x);
+
+        const double redX =
+            std::abs(
+                redPath.interactions.front().
+                outgoing->ray.direction.x);
+
+        check(
+            blueX < redX,
+            "N-BK7 bends blue light more strongly than red light");
+    }
+    else
+    {
+        check(
+            false,
+            "chromatic refractive rays produce outgoing rays");
+    }
+
     // The sign test must be limited to mirrors: detector incidence is two-sided.
     telescope::Detector detector;
     detector.surface.setGeometry(optics::PlaneGeometry{});
