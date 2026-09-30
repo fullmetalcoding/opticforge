@@ -512,6 +512,21 @@ if(BUILD_TESTING)
         target_link_libraries(opticforge_raytracer_tests PRIVATE TBB::tbb ${CMAKE_DL_LIBS})
     endif()
     add_test(NAME raytracer_regressions COMMAND opticforge_raytracer_tests)
+
+    add_executable(opticforge_material_schema_tests
+        tests/MaterialSchemaTests.cpp
+        ${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp)
+
+    target_include_directories(opticforge_material_schema_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    target_link_libraries(opticforge_material_schema_tests PRIVATE
+        nlohmann_json::nlohmann_json
+        nlohmann_json_schema_validator::validator)
+
+    add_test(
+        NAME material_schema_embedding
+        COMMAND opticforge_material_schema_tests)
 endif()
 # -----------------------------------------------------------------------------
 #  Install and package
