@@ -7,6 +7,12 @@
 
 namespace opticforge::raytracer
 {
+    enum class SpectrumMode
+    {
+        Monochromatic,
+        Reference
+    };
+
     enum class ReferenceSpectrum
     {
         D65,
