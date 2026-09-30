@@ -3,20 +3,11 @@
 
 #pragma once
 
-#include <cstdint>
+#include <string>
 #include <variant>
 
 namespace opticforge::optics
 {
-
-    //
-    // Temporary material identifier.
-    //
-    // Once Material.h exists, I would move MaterialId there and include
-    // Material.h from this file instead.
-    //
-    using MaterialId = std::uint64_t;
-
 
     //
     // Refractive boundary between two optical media.
@@ -31,14 +22,14 @@ namespace opticforge::optics
     //
     struct RefractiveInterface
     {
-        double negativeSideMaterial = 0;
-        double positiveSideMaterial = 0;
+        std::string negativeSideMaterial = "opticforge:vacuum";
+        std::string positiveSideMaterial = "opticforge:vacuum";
 
         RefractiveInterface() = default;
 
         RefractiveInterface(
-            double negativeSideMaterial,
-            double positiveSideMaterial);
+            std::string negativeSideMaterial,
+            std::string positiveSideMaterial);
     };
 
 
@@ -137,8 +128,8 @@ namespace opticforge::optics
             const OpticalInterfaceType& interface);
 
         void setRefractive(
-            double negativeSideMaterial,
-            double positiveSideMaterial);
+            std::string negativeSideMaterial,
+            std::string positiveSideMaterial);
 
         void setReflective(
             double reflectivity = 1.0);
