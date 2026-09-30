@@ -106,8 +106,14 @@ namespace opticforge::project
             return;
 
         const std::filesystem::path path =
+#if defined(__cpp_char8_t)
+            std::filesystem::path(
+                reinterpret_cast<const char8_t*>(
+                    filelist[0]));
+#else
             std::filesystem::u8path(
                 filelist[0]);
+#endif
 
         controller->dispatchToMainThread(
             [controller, path]()
@@ -145,8 +151,14 @@ namespace opticforge::project
             return;
 
         std::filesystem::path path =
+#if defined(__cpp_char8_t)
+            std::filesystem::path(
+                reinterpret_cast<const char8_t*>(
+                    filelist[0]));
+#else
             std::filesystem::u8path(
                 filelist[0]);
+#endif
 
         path =
             ensureMaterialExtension(
