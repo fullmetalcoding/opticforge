@@ -547,6 +547,7 @@ if(BUILD_TESTING)
     add_executable(opticforge_material_library_tests
         tests/MaterialLibraryTests.cpp
         src/optics/MaterialLibrary.cpp
+        src/raytracer/ReferenceSpectrum.cpp
         src/project/MaterialLibrarySerializer.cpp
         src/project/MaterialLibraryIO.cpp
         ${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp)
