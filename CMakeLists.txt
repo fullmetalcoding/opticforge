@@ -226,6 +226,7 @@ set(OPTICFORGE_SOURCES
     src/optics/OpticalSurface.cpp
     src/optics/OpticalInterface.cpp
     src/optics/MaterialLibrary.cpp
+    src/optics/Colorimetry.cpp
     src/optics/SurfaceSeparation.cpp
     src/telescope/TelescopeProject.cpp
     src/ui/UI.cpp
@@ -521,7 +522,8 @@ if(BUILD_TESTING)
         src/optics/Aperture.cpp
         src/optics/OpticalSurface.cpp
         src/optics/OpticalInterface.cpp
-        src/optics/MaterialLibrary.cpp)
+        src/optics/MaterialLibrary.cpp
+        src/optics/Colorimetry.cpp)
     target_include_directories(opticforge_raytracer_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(opticforge_raytracer_tests PRIVATE glm::glm)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -547,6 +549,7 @@ if(BUILD_TESTING)
     add_executable(opticforge_material_library_tests
         tests/MaterialLibraryTests.cpp
         src/optics/MaterialLibrary.cpp
+        src/optics/Colorimetry.cpp
         src/raytracer/ReferenceSpectrum.cpp
         src/raytracer/BundleGenerators.cpp
         src/project/MaterialLibrarySerializer.cpp
@@ -569,6 +572,8 @@ if(BUILD_TESTING)
     add_executable(opticforge_psf_rasterizer_tests
         tests/PsfRasterizerTests.cpp
         src/renderer/PsfRasterizer.cpp
+        src/optics/Colorimetry.cpp
+        src/raytracer/ReferenceSpectrum.cpp
         src/optics/Transform.cpp
         src/optics/Aperture.cpp
         src/optics/OpticalSurface.cpp
