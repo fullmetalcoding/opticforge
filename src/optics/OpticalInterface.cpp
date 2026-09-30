@@ -4,6 +4,7 @@
 #include "OpticalInterface.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace opticforge::optics
 {
@@ -13,10 +14,13 @@ namespace opticforge::optics
     // -----------------------------------------------------------------------------
 
     RefractiveInterface::RefractiveInterface(
-        double negativeSideMaterial_,
-        double positiveSideMaterial_)
-        : negativeSideMaterial(negativeSideMaterial_),
-        positiveSideMaterial(positiveSideMaterial_)
+        std::string negativeSideMaterial_,
+        std::string positiveSideMaterial_)
+        :
+        negativeSideMaterial(
+            std::move(negativeSideMaterial_)),
+        positiveSideMaterial(
+            std::move(positiveSideMaterial_))
     {
     }
 
@@ -95,13 +99,13 @@ namespace opticforge::optics
     }
 
     void OpticalInterface::setRefractive(
-        double negativeSideMaterial,
-        double positiveSideMaterial)
+        std::string negativeSideMaterial,
+        std::string positiveSideMaterial)
     {
         m_type =
             RefractiveInterface{
-                negativeSideMaterial,
-                positiveSideMaterial
+                std::move(negativeSideMaterial),
+                std::move(positiveSideMaterial)
         };
     }
 
