@@ -585,6 +585,30 @@ if(BUILD_TESTING)
     add_test(
         NAME psf_wavelength_colors
         COMMAND opticforge_psf_rasterizer_tests)
+
+    add_executable(opticforge_project_grating_tests
+        tests/ProjectGratingTests.cpp
+        src/project/ProjectSerializer.cpp
+        src/telescope/TelescopeProject.cpp
+        src/optics/Transform.cpp
+        src/optics/Aperture.cpp
+        src/optics/OpticalSurface.cpp
+        src/optics/OpticalInterface.cpp
+        src/optics/PlaneGeometry.cpp
+        src/optics/ConicGeometry.cpp
+        ${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp)
+
+    target_include_directories(opticforge_project_grating_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    target_link_libraries(opticforge_project_grating_tests PRIVATE
+        nlohmann_json::nlohmann_json
+        nlohmann_json_schema_validator::validator
+        glm::glm)
+
+    add_test(
+        NAME project_grating_roundtrip
+        COMMAND opticforge_project_grating_tests)
 endif()
 # -----------------------------------------------------------------------------
 #  Install and package
