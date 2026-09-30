@@ -80,12 +80,15 @@ namespace opticforge::ui {
 				std::isfinite(degrees.z);
 		}
 	}
-	void UI::drawUI(telescope::TelescopeProject& project,
+	void UI::drawUI(
+		telescope::TelescopeProject& project,
+		optics::MaterialLibrary& materialLibrary,
 		bool& bQuit,
 		raytracer::TraceController& traceController,
 		raytracer::TraceSettings& traceSettings,
 		const ProjectCommands& projectCommands,
-		const SceneCommands& sceneCommands
+		const SceneCommands& sceneCommands,
+		const MaterialLibraryCommands& materialCommands
 	)
 	{
 		//Super janky. Refactor later to have an active menu dialog state. 
@@ -119,6 +122,13 @@ namespace opticforge::ui {
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Edit")) {
+				if (ImGui::MenuItem("Material library..."))
+				{
+					m_materialLibraryWindow.open();
+				}
+
+				ImGui::Separator();
+
 				if (ImGui::BeginMenu("Add Primitive")) {
 					if (ImGui::MenuItem("Lens..."))
 					{
@@ -214,6 +224,10 @@ namespace opticforge::ui {
 			project,
 			traceController,
 			sceneCommands);
+
+		m_materialLibraryWindow.draw(
+			materialLibrary,
+			materialCommands);
 	}
 	void UI::drawAddLensPopup(
 		telescope::TelescopeProject& project, raytracer::TraceController& control)
