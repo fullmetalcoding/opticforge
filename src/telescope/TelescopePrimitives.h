@@ -24,6 +24,12 @@ namespace opticforge::telescope
         double centralHole = 0.0; 
     };
 
+    struct DiffractionGrating
+    {
+        optics::Transform transform;
+        optics::OpticalSurface surface;
+    };
+
     struct Detector
     {
         optics::Transform transform;
@@ -68,6 +74,7 @@ namespace opticforge::telescope
         std::variant<
         Lens,
         Mirror,
+        DiffractionGrating,
         Detector>;
 
     using PrimitiveId = std::uint64_t;
