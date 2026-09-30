@@ -24,6 +24,8 @@ namespace opticforge::raytracer
 
         ReferenceSpectrum reference =
             ReferenceSpectrum::D65;
+
+        std::size_t spectralSampleCount = 7;
     };
 
     RayBundle generatePupilRayBundle(
