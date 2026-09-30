@@ -25,6 +25,101 @@ namespace opticforge::renderer
 			glm::dvec3 color;
 			double weight;
 		};
+
+        glm::dvec3 wavelengthColor(
+            double wavelengthNm)
+        {
+            if (
+                !std::isfinite(wavelengthNm) ||
+                wavelengthNm < 380.0 ||
+                wavelengthNm > 780.0)
+            {
+                return glm::dvec3(0.5);
+            }
+
+            double r = 0.0;
+            double g = 0.0;
+            double b = 0.0;
+
+            if (wavelengthNm < 440.0)
+            {
+                r =
+                    -(wavelengthNm - 440.0) /
+                    (440.0 - 380.0);
+                b = 1.0;
+            }
+            else if (wavelengthNm < 490.0)
+            {
+                g =
+                    (wavelengthNm - 440.0) /
+                    (490.0 - 440.0);
+                b = 1.0;
+            }
+            else if (wavelengthNm < 510.0)
+            {
+                g = 1.0;
+                b =
+                    -(wavelengthNm - 510.0) /
+                    (510.0 - 490.0);
+            }
+            else if (wavelengthNm < 580.0)
+            {
+                r =
+                    (wavelengthNm - 510.0) /
+                    (580.0 - 510.0);
+                g = 1.0;
+            }
+            else if (wavelengthNm < 645.0)
+            {
+                r = 1.0;
+                g =
+                    -(wavelengthNm - 645.0) /
+                    (645.0 - 580.0);
+            }
+            else
+            {
+                r = 1.0;
+            }
+
+            double factor = 1.0;
+
+            if (wavelengthNm < 420.0)
+            {
+                factor =
+                    0.3 +
+                    0.7 *
+                    (wavelengthNm - 380.0) /
+                    40.0;
+            }
+            else if (wavelengthNm > 700.0)
+            {
+                factor =
+                    0.3 +
+                    0.7 *
+                    (780.0 - wavelengthNm) /
+                    80.0;
+            }
+
+            constexpr double gamma =
+                0.8;
+
+            const auto channel =
+                [factor](double value)
+                {
+                    return
+                        value <= 0.0
+                        ? 0.0
+                        : std::pow(
+                            value * factor,
+                            gamma);
+                };
+
+            return {
+                channel(r),
+                channel(g),
+                channel(b)
+            };
+        }
 	}
 
 	PsfImage rasterizePsf(
@@ -95,7 +190,8 @@ namespace opticforge::renderer
 
 			const auto rgb = color
 				? color(path)
-				: glm::dvec3(white ? 0.0 : 1.0);
+				: wavelengthColor(
+                    hit.incoming.wavelength);
 
 			if (!finite(rgb))
 				continue;
