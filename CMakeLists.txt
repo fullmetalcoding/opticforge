@@ -558,7 +558,8 @@ if(BUILD_TESTING)
 
     target_link_libraries(opticforge_material_library_tests PRIVATE
         nlohmann_json::nlohmann_json
-        nlohmann_json_schema_validator::validator)
+        nlohmann_json_schema_validator::validator
+        glm::glm)
 
     add_test(
         NAME material_library_roundtrip
