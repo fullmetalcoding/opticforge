@@ -23,7 +23,7 @@ namespace opticforge::ui
                 // typed numbers. Arrow buttons still work normally.
                 constexpr auto commit = ImGuiInputTextFlags_EnterReturnsTrue;
                 int count = static_cast<int>(std::min<std::size_t>(settings.rayCount, 1000000));
-                if (ImGui::InputInt("Number of rays", &count, 100, 1000))
+                if (ImGui::InputInt("Pupil samples", &count, 100, 1000))
                 {
                     settings.rayCount = static_cast<std::size_t>(std::clamp(count, 1, 1000000));
                     traceChanged = true;
@@ -148,6 +148,66 @@ namespace opticforge::ui
                         ImGui::TextDisabled(
                             "D65 sampled from the standard visible spectral distribution.");
                     }
+
+                    constexpr int sampleCounts[] =
+                    {
+                        3,
+                        7,
+                        15,
+                        31
+                    };
+
+                    int sampleCountIndex = 1;
+
+                    for (
+                        int i = 0;
+                        i < IM_ARRAYSIZE(sampleCounts);
+                        ++i)
+                    {
+                        if (
+                            settings.spectralSampleCount ==
+                            static_cast<std::size_t>(
+                                sampleCounts[i]))
+                        {
+                            sampleCountIndex = i;
+                            break;
+                        }
+                    }
+
+                    const char* sampleCountLabels[] =
+                    {
+                        "3",
+                        "7",
+                        "15",
+                        "31"
+                    };
+
+                    if (ImGui::Combo(
+                        "Spectral samples",
+                        &sampleCountIndex,
+                        sampleCountLabels,
+                        IM_ARRAYSIZE(sampleCountLabels)))
+                    {
+                        settings.spectralSampleCount =
+                            static_cast<std::size_t>(
+                                sampleCounts[
+                                    sampleCountIndex]);
+
+                        traceChanged = true;
+                    }
+
+                    const std::size_t totalRays =
+                        settings.rayCount *
+                        settings.spectralSampleCount;
+
+                    ImGui::TextDisabled(
+                        "%zu pupil samples x %zu wavelengths = %zu traced rays.",
+                        settings.rayCount,
+                        settings.spectralSampleCount,
+                        totalRays);
+
+                    ImGui::TextDisabled(
+                        "Each wavelength reuses the same Monte Carlo pupil points.");
                 }
 
                 auto pupil = project.getLaunchPupil();
