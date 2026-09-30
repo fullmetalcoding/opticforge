@@ -126,6 +126,9 @@ namespace opticforge::optics
                 "Wavelength must be finite and positive.");
         }
 
+        if (key == "opticforge:vacuum")
+            return 1.0;
+
         constexpr std::string_view legacyPrefix =
             "legacy-index:";
 
