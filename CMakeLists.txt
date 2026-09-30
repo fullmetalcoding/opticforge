@@ -225,9 +225,11 @@ set(OPTICFORGE_SOURCES
     src/optics/Aperture.cpp
     src/optics/OpticalSurface.cpp
     src/optics/OpticalInterface.cpp
+    src/optics/MaterialLibrary.cpp
     src/optics/SurfaceSeparation.cpp
     src/telescope/TelescopeProject.cpp
     src/ui/UI.cpp
+    src/ui/MaterialLibraryWindow.cpp
     src/ui/TraceSettingsWindow.cpp
     src/raytracer/BundleGenerators.cpp
     src/raytracer/Raytracer.cpp
@@ -242,6 +244,9 @@ set(OPTICFORGE_SOURCES
     src/project/ProjectSerializer.cpp
     src/project/ProjectIO.cpp
     src/project/ProjectController.cpp
+    src/project/MaterialLibrarySerializer.cpp
+    src/project/MaterialLibraryIO.cpp
+    src/project/MaterialLibraryController.cpp
     
 )
 
@@ -527,6 +532,24 @@ if(BUILD_TESTING)
     add_test(
         NAME material_schema_embedding
         COMMAND opticforge_material_schema_tests)
+
+    add_executable(opticforge_material_library_tests
+        tests/MaterialLibraryTests.cpp
+        src/optics/MaterialLibrary.cpp
+        src/project/MaterialLibrarySerializer.cpp
+        src/project/MaterialLibraryIO.cpp
+        ${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp)
+
+    target_include_directories(opticforge_material_library_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    target_link_libraries(opticforge_material_library_tests PRIVATE
+        nlohmann_json::nlohmann_json
+        nlohmann_json_schema_validator::validator)
+
+    add_test(
+        NAME material_library_roundtrip
+        COMMAND opticforge_material_library_tests)
 endif()
 # -----------------------------------------------------------------------------
 #  Install and package
