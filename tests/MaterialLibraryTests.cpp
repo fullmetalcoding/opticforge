@@ -488,6 +488,15 @@ int main(int argc, char** argv)
             check(
                 std::abs(nd - 1.5168) < 5.0e-4,
                 "starter N-BK7 dispersion evaluates near catalog nd");
+
+            const double nf2Nd =
+                starter.refractiveIndex(
+                    "schott:N-F2",
+                    587.56);
+
+            check(
+                std::abs(nf2Nd - 1.62005) < 5.0e-4,
+                "starter N-F2 dispersion evaluates near catalog nd");
         }
         catch (const std::exception& e)
         {
