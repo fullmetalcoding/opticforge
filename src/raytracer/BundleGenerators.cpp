@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "BundleGenerators.h"
+#include "optics/Colorimetry.h"
 
 #include <cmath>
 #include <cstddef>
@@ -71,7 +72,9 @@ namespace opticforge::raytracer
             spectralSamples.push_back(
                 {
                     spectrum.wavelengthNm,
-                    1.0
+                    1.0,
+                    optics::cie1931Xyz(
+                        spectrum.wavelengthNm)
                 });
         }
 
@@ -162,6 +165,9 @@ namespace opticforge::raytracer
 
                 opticalRay.intensity =
                     spectralSample.weight;
+
+                opticalRay.cieXyzPerUnitPower =
+                    spectralSample.cieXyzPerUnitPower;
 
                 bundle.push_back(
                     std::move(opticalRay));
