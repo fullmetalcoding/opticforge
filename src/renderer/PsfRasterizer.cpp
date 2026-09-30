@@ -104,7 +104,7 @@ namespace opticforge::renderer
                 0.8;
 
             const auto channel =
-                [factor](double value)
+                [factor, gamma](double value)
                 {
                     return
                         value <= 0.0
