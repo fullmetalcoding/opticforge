@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <random>
 #include <stdexcept>
 
@@ -56,8 +57,39 @@ namespace opticforge::raytracer
                 "Monochromatic wavelength must be finite and positive.");
         }
 
+        std::vector<SpectralSample> spectralSamples;
+
+        if (spectrum.mode == SpectrumMode::Reference)
+        {
+            spectralSamples =
+                buildReferenceSpectrum(
+                    spectrum.reference,
+                    spectrum.spectralSampleCount);
+        }
+        else
+        {
+            spectralSamples.push_back(
+                {
+                    spectrum.wavelengthNm,
+                    1.0
+                });
+        }
+
+        if (
+            numberOfRays >
+            std::numeric_limits<std::size_t>::max() /
+            spectralSamples.size())
+        {
+            throw std::overflow_error(
+                "Expanded ray bundle size overflows size_t.");
+        }
+
+        const std::size_t expandedRayCount =
+            numberOfRays *
+            spectralSamples.size();
+
         RayBundle bundle;
-        bundle.reserve(numberOfRays);
+        bundle.reserve(expandedRayCount);
 
         const double pupilRadius =
             pupilDiameter * 0.5;
@@ -91,9 +123,6 @@ namespace opticforge::raytracer
             const double v =
                 unitDistribution(rng);
 
-            const double spectralU =
-                unitDistribution(rng);
-
             const double radius =
                 pupilRadius *
                 std::sqrt(u);
@@ -110,30 +139,33 @@ namespace opticforge::raytracer
                 radius *
                 std::sin(theta);
 
-            optics::OpticalRay opticalRay;
+            const glm::dvec3 origin =
+                pupilCenter +
+                glm::dvec3(
+                    x,
+                    y,
+                    0.0);
 
-            opticalRay.ray =
-                optics::Ray(
-                    pupilCenter +
-                    glm::dvec3(
-                        x,
-                        y,
-                        0.0),
-                    rayDirection);
+            for (
+                const auto& spectralSample :
+                spectralSamples)
+            {
+                optics::OpticalRay opticalRay;
 
-            opticalRay.wavelength =
-                spectrum.mode ==
-                    SpectrumMode::Reference
-                ? sampleReferenceSpectrum(
-                    spectrum.reference,
-                    spectralU)
-                : spectrum.wavelengthNm;
+                opticalRay.ray =
+                    optics::Ray(
+                        origin,
+                        rayDirection);
 
-            opticalRay.intensity =
-                1.0;
+                opticalRay.wavelength =
+                    spectralSample.wavelengthNm;
 
-            bundle.push_back(
-                std::move(opticalRay));
+                opticalRay.intensity =
+                    spectralSample.weight;
+
+                bundle.push_back(
+                    std::move(opticalRay));
+            }
         }
 
         return bundle;
