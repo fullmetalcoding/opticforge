@@ -548,6 +548,7 @@ if(BUILD_TESTING)
         tests/MaterialLibraryTests.cpp
         src/optics/MaterialLibrary.cpp
         src/raytracer/ReferenceSpectrum.cpp
+        src/raytracer/BundleGenerators.cpp
         src/project/MaterialLibrarySerializer.cpp
         src/project/MaterialLibraryIO.cpp
         ${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp)
