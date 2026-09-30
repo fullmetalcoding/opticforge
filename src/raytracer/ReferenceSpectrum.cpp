@@ -7,19 +7,18 @@
 #include <array>
 #include <cmath>
 #include <stdexcept>
-#include <vector>
 
 namespace opticforge::raytracer
 {
     namespace
     {
-        struct SpectrumSample
+        struct SpectrumPoint
         {
             double wavelengthNm;
             double relativePower;
         };
 
-        constexpr std::array<SpectrumSample, 21>
+        constexpr std::array<SpectrumPoint, 21>
             D65Samples{{
                 { 380.0, 49.9755 },
                 { 400.0, 82.7549 },
@@ -80,125 +79,59 @@ namespace opticforge::raytracer
                 );
         }
 
-        std::vector<SpectrumSample>
-            stellarSamples(
-                double temperatureK)
+        double d65RelativePower(
+            double wavelengthNm)
         {
-            std::vector<SpectrumSample> result;
-            result.reserve(41);
+            if (wavelengthNm <= D65Samples.front().wavelengthNm)
+                return D65Samples.front().relativePower;
 
-            for (
-                int wavelength = 380;
-                wavelength <= 780;
-                wavelength += 10)
-            {
-                result.push_back(
+            if (wavelengthNm >= D65Samples.back().wavelengthNm)
+                return D65Samples.back().relativePower;
+
+            const auto upper =
+                std::upper_bound(
+                    D65Samples.begin(),
+                    D65Samples.end(),
+                    wavelengthNm,
+                    [](double wavelength, const SpectrumPoint& point)
                     {
-                        static_cast<double>(wavelength),
-                        planckRelativePower(
-                            static_cast<double>(wavelength),
-                            temperatureK)
+                        return wavelength < point.wavelengthNm;
                     });
-            }
 
-            return result;
+            const auto lower =
+                upper - 1;
+
+            const double t =
+                (wavelengthNm - lower->wavelengthNm) /
+                (upper->wavelengthNm - lower->wavelengthNm);
+
+            return
+                lower->relativePower +
+                (upper->relativePower - lower->relativePower) *
+                t;
         }
 
-        const std::vector<SpectrumSample>&
-            stellarSpectrum(
-                ReferenceSpectrum spectrum)
+        double relativePower(
+            ReferenceSpectrum spectrum,
+            double wavelengthNm)
         {
-            static const auto o5 =
-                stellarSamples(40000.0);
+            if (spectrum == ReferenceSpectrum::D65)
+                return d65RelativePower(wavelengthNm);
 
-            static const auto b0 =
-                stellarSamples(30000.0);
+            const double temperature =
+                referenceSpectrumTemperatureK(
+                    spectrum);
 
-            static const auto a0 =
-                stellarSamples(9600.0);
-
-            static const auto f0 =
-                stellarSamples(7300.0);
-
-            static const auto g0 =
-                stellarSamples(5940.0);
-
-            static const auto k0 =
-                stellarSamples(5250.0);
-
-            static const auto m0 =
-                stellarSamples(3850.0);
-
-            switch (spectrum)
-            {
-            case ReferenceSpectrum::O5: return o5;
-            case ReferenceSpectrum::B0: return b0;
-            case ReferenceSpectrum::A0: return a0;
-            case ReferenceSpectrum::F0: return f0;
-            case ReferenceSpectrum::G0: return g0;
-            case ReferenceSpectrum::K0: return k0;
-            case ReferenceSpectrum::M0: return m0;
-            case ReferenceSpectrum::D65:
-                break;
-            }
-
-            throw std::invalid_argument(
-                "D65 is not a stellar continuum spectrum.");
-        }
-
-        template <typename Range>
-        double sampleWeighted(
-            const Range& samples,
-            double u)
-        {
-            if (
-                !std::isfinite(u) ||
-                u < 0.0 ||
-                u >= 1.0)
+            if (temperature <= 0.0)
             {
                 throw std::invalid_argument(
-                    "Spectrum sample coordinate must be in [0, 1).");
-            }
-
-            double total = 0.0;
-
-            for (const auto& sample : samples)
-            {
-                if (
-                    std::isfinite(sample.relativePower) &&
-                    sample.relativePower > 0.0)
-                {
-                    total +=
-                        sample.relativePower;
-                }
-            }
-
-            if (
-                !std::isfinite(total) ||
-                total <= 0.0)
-            {
-                throw std::runtime_error(
-                    "Reference spectrum contains no positive power.");
-            }
-
-            const double target =
-                u * total;
-
-            double cumulative = 0.0;
-
-            for (const auto& sample : samples)
-            {
-                cumulative +=
-                    std::max(
-                        0.0,
-                        sample.relativePower);
-
-                if (target <= cumulative)
-                    return sample.wavelengthNm;
+                    "Invalid stellar reference spectrum.");
             }
 
             return
-                samples.back().wavelengthNm;
+                planckRelativePower(
+                    wavelengthNm,
+                    temperature);
         }
     }
 
@@ -238,32 +171,91 @@ namespace opticforge::raytracer
         return 0.0;
     }
 
-    double sampleReferenceSpectrum(
-        ReferenceSpectrum spectrum,
-        double u)
+    bool isSupportedSpectralSampleCount(
+        std::size_t sampleCount) noexcept
     {
-        if (spectrum == ReferenceSpectrum::D65)
-        {
-            return
-                sampleWeighted(
-                    D65Samples,
-                    u);
-        }
+        return
+            sampleCount == 3 ||
+            sampleCount == 7 ||
+            sampleCount == 15 ||
+            sampleCount == 31;
+    }
 
-        const double temperature =
-            referenceSpectrumTemperatureK(
-                spectrum);
-
-        if (temperature <= 0.0)
+    std::vector<SpectralSample> buildReferenceSpectrum(
+        ReferenceSpectrum spectrum,
+        std::size_t sampleCount)
+    {
+        if (!isSupportedSpectralSampleCount(sampleCount))
         {
             throw std::invalid_argument(
-                "Invalid stellar reference spectrum.");
+                "Reference spectrum sample count must be 3, 7, 15, or 31.");
         }
 
-        return
-            sampleWeighted(
-                stellarSpectrum(spectrum),
-                u);
+        constexpr double MinWavelengthNm =
+            380.0;
+
+        constexpr double MaxWavelengthNm =
+            780.0;
+
+        const double step =
+            (MaxWavelengthNm - MinWavelengthNm) /
+            static_cast<double>(sampleCount - 1);
+
+        std::vector<SpectralSample> samples;
+        samples.reserve(sampleCount);
+
+        double totalWeight = 0.0;
+
+        for (
+            std::size_t i = 0;
+            i < sampleCount;
+            ++i)
+        {
+            const double wavelength =
+                MinWavelengthNm +
+                step *
+                static_cast<double>(i);
+
+            double weight =
+                relativePower(
+                    spectrum,
+                    wavelength);
+
+            // Trapezoidal integration over an evenly spaced wavelength grid.
+            // The common wavelength step cancels when weights are normalized.
+            if (i == 0 || i + 1 == sampleCount)
+                weight *= 0.5;
+
+            if (
+                !std::isfinite(weight) ||
+                weight < 0.0)
+            {
+                throw std::runtime_error(
+                    "Reference spectrum produced an invalid spectral weight.");
+            }
+
+            samples.push_back(
+                {
+                    wavelength,
+                    weight
+                });
+
+            totalWeight +=
+                weight;
+        }
+
+        if (
+            !std::isfinite(totalWeight) ||
+            totalWeight <= 0.0)
+        {
+            throw std::runtime_error(
+                "Reference spectrum contains no positive visible power.");
+        }
+
+        for (auto& sample : samples)
+            sample.weight /= totalWeight;
+
+        return samples;
     }
 
 } // namespace opticforge::raytracer
