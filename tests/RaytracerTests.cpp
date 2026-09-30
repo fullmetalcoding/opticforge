@@ -318,6 +318,69 @@ int main()
             "grating produces an outgoing first-order ray");
     }
 
+    optics::OpticalRay blueGratingRay =
+        gratingRay;
+
+    blueGratingRay.wavelength =
+        450.0;
+
+    optics::OpticalRay redGratingRay =
+        gratingRay;
+
+    redGratingRay.wavelength =
+        650.0;
+
+    const auto blueGratingPath =
+        raytracer::RayTracer{}.traceRay(
+            blueGratingRay,
+            {
+                telescope::PrimitiveRecord{
+                    63,
+                    grating,
+                    "blue grating"
+                }
+            },
+            gratingPlane,
+            1);
+
+    const auto redGratingPath =
+        raytracer::RayTracer{}.traceRay(
+            redGratingRay,
+            {
+                telescope::PrimitiveRecord{
+                    64,
+                    grating,
+                    "red grating"
+                }
+            },
+            gratingPlane,
+            1);
+
+    if (
+        blueGratingPath.interactions.size() == 1 &&
+        redGratingPath.interactions.size() == 1 &&
+        blueGratingPath.interactions.front().outgoing &&
+        redGratingPath.interactions.front().outgoing)
+    {
+        const double blueDispersion =
+            blueGratingPath.interactions.front().
+            outgoing->ray.direction.x;
+
+        const double redDispersion =
+            redGratingPath.interactions.front().
+            outgoing->ray.direction.x;
+
+        check(
+            redDispersion > blueDispersion,
+            "reflection grating angularly separates red and blue wavelengths");
+    }
+    else
+    {
+        check(
+            false,
+            "red and blue grating rays both produce outgoing orders");
+    }
+
     // Rotating the grooves by +90 degrees should rotate dispersion from +X
     // to -Y under the documented +Y -> +X groove-angle convention.
     telescope::DiffractionGrating rotatedGrating =
