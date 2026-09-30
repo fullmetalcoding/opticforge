@@ -5,6 +5,7 @@
 
 #include "TraceController.h"
 #include "Raytracer.h"
+#include "ReferenceSpectrum.h"
 
 #include <algorithm>
 #include <atomic>
@@ -427,6 +428,7 @@ namespace opticforge::raytracer
 
 	void TraceController::update(
 		const telescope::TelescopeProject& project,
+		const optics::MaterialLibrary& materialLibrary,
 		const TraceSettings& settings)
 	{
 		pollJob();
@@ -454,6 +456,7 @@ namespace opticforge::raytracer
 		{
 			startJob(
 				project,
+				materialLibrary,
 				settings);
 		}
 	}
@@ -461,6 +464,7 @@ namespace opticforge::raytracer
 
 	void TraceController::startJob(
 		const telescope::TelescopeProject& project,
+		const optics::MaterialLibrary& materialLibrary,
 		const TraceSettings& settings)
 	{
 		// Consume the pending request before attempting to start.
@@ -485,6 +489,9 @@ namespace opticforge::raytracer
 
 			snapshot.observationPlane =
 				project.getObservationPlane();
+
+            snapshot.materialLibrary =
+                materialLibrary;
 
 			snapshot.settings =
 				settings;
@@ -702,12 +709,15 @@ namespace opticforge::raytracer
 			}
 
 
-			if (!positiveFinite(
-				settings.wavelengthNm))
-			{
-				throw std::invalid_argument(
-					"Wavelength must be finite and positive.");
-			}
+            if (
+                settings.spectrumMode ==
+                    SpectrumMode::Monochromatic &&
+                !positiveFinite(
+                    settings.wavelengthNm))
+            {
+                throw std::invalid_argument(
+                    "Wavelength must be finite and positive.");
+            }
 
 
 			validateAperture(
@@ -792,6 +802,9 @@ namespace opticforge::raytracer
 				const double v =
 					uniform(rng);
 
+                const double spectralU =
+                    uniform(rng);
+
 
 				const glm::dvec2 sample =
 					sampleAperture(
@@ -822,8 +835,13 @@ namespace opticforge::raytracer
 						origin,
 						direction);
 
-				ray.wavelength =
-					settings.wavelengthNm;
+                ray.wavelength =
+                    settings.spectrumMode ==
+                        SpectrumMode::Reference
+                    ? sampleReferenceSpectrum(
+                        settings.referenceSpectrum,
+                        spectralU)
+                    : settings.wavelengthNm;
 
 				ray.intensity =
 					1.0;
@@ -929,10 +947,10 @@ namespace opticforge::raytracer
 				{
 					try
 					{
-						// RayTracer is currently stateless, but giving each
-						// worker its own instance avoids introducing a hidden
-						// shared-state dependency if that changes later.
-						RayTracer tracer;
+                        // Each worker gets its own tracer while sharing the
+                        // immutable material library contained in the snapshot.
+						RayTracer tracer(
+                            snapshot.materialLibrary);
 
 
 						while (true)
