@@ -6,6 +6,7 @@
 #include "TraceController.h"
 #include "Raytracer.h"
 #include "ReferenceSpectrum.h"
+#include "optics/Colorimetry.h"
 
 #include <algorithm>
 #include <atomic>
@@ -831,7 +832,9 @@ namespace opticforge::raytracer
                 spectralSamples.push_back(
                     {
                         settings.wavelengthNm,
-                        1.0
+                        1.0,
+                        optics::cie1931Xyz(
+                            settings.wavelengthNm)
                     });
             }
 
@@ -899,6 +902,9 @@ namespace opticforge::raytracer
 
                     ray.intensity =
                         spectralSample.weight;
+
+                    ray.cieXyzPerUnitPower =
+                        spectralSample.cieXyzPerUnitPower;
 
                     rays.push_back(
                         std::move(ray));
