@@ -383,6 +383,65 @@ int main(int argc, char** argv)
             1.0e-12,
         "D65 discrete spectral weights are normalized");
 
+    const auto integratedXyz =
+        [](const auto& samples)
+        {
+            glm::dvec3 xyz(0.0);
+
+            for (const auto& sample : samples)
+            {
+                xyz +=
+                    sample.cieXyzPerUnitPower *
+                    sample.weight;
+            }
+
+            return xyz;
+        };
+
+    const glm::dvec3 d65Xyz =
+        integratedXyz(
+            d65Samples);
+
+    check(
+        d65Xyz.y > 0.0 &&
+        std::abs(
+            d65Xyz.x / d65Xyz.y -
+            0.95047) <
+            0.02 &&
+        std::abs(
+            d65Xyz.z / d65Xyz.y -
+            1.08883) <
+            0.02,
+        "integrated D65 bands reproduce the D65 white point");
+
+    for (
+        const auto spectrum :
+        {
+            raytracer::ReferenceSpectrum::D65,
+            raytracer::ReferenceSpectrum::O5,
+            raytracer::ReferenceSpectrum::M0
+        })
+    {
+        const glm::dvec3 xyz3 =
+            integratedXyz(
+                raytracer::buildReferenceSpectrum(
+                    spectrum,
+                    3));
+
+        const glm::dvec3 xyz31 =
+            integratedXyz(
+                raytracer::buildReferenceSpectrum(
+                    spectrum,
+                    31));
+
+        check(
+            glm::length(
+                xyz3 -
+                xyz31) <
+                1.0e-4,
+            "integrated reference-spectrum color is stable across sample counts");
+    }
+
     const auto a0Samples =
         raytracer::buildReferenceSpectrum(
             raytracer::ReferenceSpectrum::A0,
