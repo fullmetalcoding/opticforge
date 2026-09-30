@@ -6,6 +6,7 @@
 #include "raytracer/TraceController.h"
 #include "renderer/PsfRasterizer.h"
 #include "renderer/RayPathGeometry.h"
+#include "MaterialLibraryWindow.h"
 #include <functional>
 #include <optional>
 
@@ -99,8 +100,15 @@ namespace opticforge::ui
 
 	class UI {
 	public:
-        void drawUI(telescope::TelescopeProject& project, bool & bQuit, raytracer::TraceController & control,
-            raytracer::TraceSettings & traceSettings, const ProjectCommands& projectCommands, const SceneCommands& sceneCommands);
+        void drawUI(
+            telescope::TelescopeProject& project,
+            optics::MaterialLibrary& materialLibrary,
+            bool& bQuit,
+            raytracer::TraceController& control,
+            raytracer::TraceSettings& traceSettings,
+            const ProjectCommands& projectCommands,
+            const SceneCommands& sceneCommands,
+            const MaterialLibraryCommands& materialCommands);
         const renderer::RayPathRenderSettings& rayPathSettings() const
         {
             return m_rayPathSettings;
@@ -179,5 +187,7 @@ namespace opticforge::ui
 
         std::optional<telescope::PrimitiveId>
             m_manipulatedPrimitiveId;
+
+        MaterialLibraryWindow m_materialLibraryWindow;
 	};
 }

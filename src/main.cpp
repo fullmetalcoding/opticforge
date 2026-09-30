@@ -23,6 +23,8 @@
 #include "telescope/TelescopeProject.h"
 #include "ui/UI.h"
 #include "project/ProjectController.h"
+#include "project/MaterialLibraryController.h"
+#include "optics/MaterialLibrary.h"
 
 #include <iostream>
 #include <algorithm>
@@ -138,6 +140,7 @@ int main(int, char**)
 	// Telescope project
 	// ------------------------------------------------------------
 	opticforge::telescope::TelescopeProject project;
+	opticforge::optics::MaterialLibrary materialLibrary;
 	// Persistent application state:
 	std::uint64_t displayedTraceVersion = 0;
 
@@ -207,6 +210,28 @@ int main(int, char**)
 		{
 			renderSys.removePrimitiveFromCache(
 				id);
+		}
+	};
+
+	opticforge::project::MaterialLibraryController materialLibraryController(
+		window,
+		materialLibrary);
+
+	opticforge::ui::MaterialLibraryCommands materialLibraryCommands
+	{
+		[&materialLibraryController]()
+		{
+			materialLibraryController.loadLibrary();
+		},
+
+		[&materialLibraryController]()
+		{
+			materialLibraryController.saveLibrary();
+		},
+
+		[&materialLibraryController]()
+		{
+			materialLibraryController.saveLibraryAs();
 		}
 	};
 
@@ -609,7 +634,15 @@ int main(int, char**)
 			pendingSceneClick.valid =
 				false;
 		}
-		main_ui.drawUI(project, bQuit, traceController, traceSettings, projectCommands, sceneCommands);
+		main_ui.drawUI(
+			project,
+			materialLibrary,
+			bQuit,
+			traceController,
+			traceSettings,
+			projectCommands,
+			sceneCommands,
+			materialLibraryCommands);
 		// Each frame:
 		traceController.setResultsNeeded(
 			main_ui.showPsf() || main_ui.showRays());
