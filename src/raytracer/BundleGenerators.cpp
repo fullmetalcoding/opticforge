@@ -2,39 +2,53 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "BundleGenerators.h"
+
 #include <cmath>
 #include <cstddef>
 #include <numbers>
 #include <random>
 #include <stdexcept>
 
-
 #include <glm/glm.hpp>
 
-namespace opticforge::raytracer {
+namespace opticforge::raytracer
+{
     RayBundle generatePupilRayBundle(
         std::size_t numberOfRays,
         double pupilDiameter,
         double pupilDistanceMinusZ,
         double pupilElevationY,
         double offAxisAngleXRadians,
-        double offAxisAngleYRadians)
+        double offAxisAngleYRadians,
+        const RayBundleSpectrum& spectrum,
+        std::uint64_t randomSeed)
     {
         if (numberOfRays == 0)
-        {
             return {};
-        }
 
-        if (pupilDiameter <= 0.0)
+        if (
+            !std::isfinite(pupilDiameter) ||
+            pupilDiameter <= 0.0)
         {
             throw std::invalid_argument(
                 "pupilDiameter must be greater than zero.");
         }
 
-        if (pupilDistanceMinusZ < 0.0)
+        if (
+            !std::isfinite(pupilDistanceMinusZ) ||
+            pupilDistanceMinusZ < 0.0)
         {
             throw std::invalid_argument(
                 "pupilDistanceMinusZ must be non-negative.");
+        }
+
+        if (
+            spectrum.mode == SpectrumMode::Monochromatic &&
+            (!std::isfinite(spectrum.wavelengthNm) ||
+             spectrum.wavelengthNm <= 0.0))
+        {
+            throw std::invalid_argument(
+                "Monochromatic wavelength must be finite and positive.");
         }
 
         RayBundle bundle;
@@ -48,12 +62,6 @@ namespace opticforge::raytracer {
             pupilElevationY,
             -pupilDistanceMinusZ);
 
-        //
-        // Field direction.
-        //
-        // thetaX controls angular offset in the X-Z plane.
-        // thetaY controls angular offset in the Y-Z plane.
-        //
         const glm::dvec3 rayDirection =
             glm::normalize(
                 glm::dvec3(
@@ -61,13 +69,14 @@ namespace opticforge::raytracer {
                     std::tan(offAxisAngleYRadians),
                     1.0));
 
-        std::random_device rd;
-        std::mt19937_64 rng(rd());
+        std::mt19937_64 rng(
+            randomSeed);
 
         std::uniform_real_distribution<double>
             unitDistribution(0.0, 1.0);
 
-        for (std::size_t i = 0;
+        for (
+            std::size_t i = 0;
             i < numberOfRays;
             ++i)
         {
@@ -77,9 +86,9 @@ namespace opticforge::raytracer {
             const double v =
                 unitDistribution(rng);
 
-            //
-            // Uniform-area sampling of the circular pupil.
-            //
+            const double spectralU =
+                unitDistribution(rng);
+
             const double radius =
                 pupilRadius *
                 std::sqrt(u);
@@ -108,8 +117,19 @@ namespace opticforge::raytracer {
                         0.0),
                     rayDirection);
 
+            opticalRay.wavelength =
+                spectrum.mode ==
+                    SpectrumMode::Reference
+                ? sampleReferenceSpectrum(
+                    spectrum.reference,
+                    spectralU)
+                : spectrum.wavelengthNm;
+
+            opticalRay.intensity =
+                1.0;
+
             bundle.push_back(
-                opticalRay);
+                std::move(opticalRay));
         }
 
         return bundle;
