@@ -38,6 +38,15 @@ int main(int argc, char** argv)
 
     optics::MaterialLibrary library;
 
+    check(
+        std::abs(
+            library.refractiveIndex(
+                "opticforge:vacuum",
+                550.0) -
+            1.0) <
+            1.0e-12,
+        "vacuum is available as a built-in optical medium");
+
     library.metadata().id =
         "unit-test";
 
