@@ -568,7 +568,13 @@ if(BUILD_TESTING)
 
     add_executable(opticforge_psf_rasterizer_tests
         tests/PsfRasterizerTests.cpp
-        src/renderer/PsfRasterizer.cpp)
+        src/renderer/PsfRasterizer.cpp
+        src/optics/Transform.cpp
+        src/optics/Aperture.cpp
+        src/optics/OpticalSurface.cpp
+        src/optics/OpticalInterface.cpp
+        src/optics/PlaneGeometry.cpp
+        src/optics/ConicGeometry.cpp)
 
     target_include_directories(opticforge_psf_rasterizer_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src)
