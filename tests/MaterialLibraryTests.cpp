@@ -5,6 +5,7 @@
 #include "project/MaterialLibraryIO.h"
 #include "project/MaterialLibrarySerializer.h"
 #include "raytracer/ReferenceSpectrum.h"
+#include "raytracer/BundleGenerators.h"
 
 #include <cmath>
 #include <filesystem>
@@ -201,6 +202,119 @@ int main(int argc, char** argv)
             }
         }
     }
+
+    raytracer::RayBundleSpectrum monoSpectrum;
+    monoSpectrum.mode =
+        raytracer::SpectrumMode::Monochromatic;
+    monoSpectrum.wavelengthNm =
+        532.0;
+
+    const auto monoBundle =
+        raytracer::generatePupilRayBundle(
+            64,
+            100.0,
+            10.0,
+            0.0,
+            0.0,
+            0.0,
+            monoSpectrum,
+            1234);
+
+    check(
+        monoBundle.size() == 64,
+        "monochromatic bundle preserves requested ray count");
+
+    bool monoWavelengthsCorrect =
+        true;
+
+    for (const auto& ray : monoBundle)
+    {
+        monoWavelengthsCorrect =
+            monoWavelengthsCorrect &&
+            std::abs(ray.wavelength - 532.0) <
+                1.0e-12;
+    }
+
+    check(
+        monoWavelengthsCorrect,
+        "monochromatic bundle uses one requested wavelength");
+
+    raytracer::RayBundleSpectrum referenceSpectrum;
+    referenceSpectrum.mode =
+        raytracer::SpectrumMode::Reference;
+    referenceSpectrum.reference =
+        raytracer::ReferenceSpectrum::D65;
+
+    const auto referenceBundle =
+        raytracer::generatePupilRayBundle(
+            256,
+            100.0,
+            10.0,
+            0.0,
+            0.0,
+            0.0,
+            referenceSpectrum,
+            1234);
+
+    bool sawDifferentWavelength =
+        false;
+
+    if (!referenceBundle.empty())
+    {
+        const double firstWavelength =
+            referenceBundle.front().wavelength;
+
+        for (const auto& ray : referenceBundle)
+        {
+            if (
+                std::abs(
+                    ray.wavelength -
+                    firstWavelength) >
+                1.0e-12)
+            {
+                sawDifferentWavelength =
+                    true;
+
+                break;
+            }
+        }
+    }
+
+    check(
+        sawDifferentWavelength,
+        "reference-spectrum bundle contains multiple wavelengths");
+
+    const auto referenceBundleRepeat =
+        raytracer::generatePupilRayBundle(
+            256,
+            100.0,
+            10.0,
+            0.0,
+            0.0,
+            0.0,
+            referenceSpectrum,
+            1234);
+
+    bool deterministic =
+        referenceBundle.size() ==
+        referenceBundleRepeat.size();
+
+    for (
+        std::size_t i = 0;
+        deterministic &&
+        i < referenceBundle.size();
+        ++i)
+    {
+        deterministic =
+            referenceBundle[i].wavelength ==
+                referenceBundleRepeat[i].wavelength &&
+            referenceBundle[i].ray.origin ==
+                referenceBundleRepeat[i].ray.origin;
+    }
+
+    check(
+        deterministic,
+        "reference-spectrum bundle is deterministic for a fixed seed");
 
     const double d65Sample =
         raytracer::sampleReferenceSpectrum(
