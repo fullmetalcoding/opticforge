@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <type_traits>
 
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -777,9 +779,25 @@ namespace opticforge::ui
 
                     if (value.opticAxis)
                     {
-                        ImGui::InputDouble3(
-                            "Optic axis",
-                            value.opticAxis->data(),
+                        ImGui::InputDouble(
+                            "Optic axis X",
+                            &(*value.opticAxis)[0],
+                            0.01,
+                            0.1,
+                            "%.6f");
+
+                        ImGui::InputDouble(
+                            "Optic axis Y",
+                            &(*value.opticAxis)[1],
+                            0.01,
+                            0.1,
+                            "%.6f");
+
+                        ImGui::InputDouble(
+                            "Optic axis Z",
+                            &(*value.opticAxis)[2],
+                            0.01,
+                            0.1,
                             "%.6f");
                     }
                 }
