@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "ReferenceSpectrum.h"
+#include "optics/Colorimetry.h"
 
 #include <algorithm>
 #include <array>
@@ -133,6 +134,102 @@ namespace opticforge::raytracer
                     wavelengthNm,
                     temperature);
         }
+
+        struct IntegratedBand
+        {
+            double power = 0.0;
+            double wavelengthMoment = 0.0;
+            glm::dvec3 cieXyz{ 0.0 };
+        };
+
+        IntegratedBand integrateBand(
+            ReferenceSpectrum spectrum,
+            double beginNm,
+            double endNm)
+        {
+            if (
+                !std::isfinite(beginNm) ||
+                !std::isfinite(endNm) ||
+                endNm <= beginNm)
+            {
+                throw std::invalid_argument(
+                    "Invalid reference-spectrum band.");
+            }
+
+            // At most 1 nm per quadrature interval. This makes total source
+            // color effectively independent of whether the visible range is
+            // partitioned into 3, 7, 15, or 31 traced bands.
+            const std::size_t intervals =
+                std::max<std::size_t>(
+                    1,
+                    static_cast<std::size_t>(
+                        std::ceil(
+                            endNm -
+                            beginNm)));
+
+            const double step =
+                (endNm - beginNm) /
+                static_cast<double>(
+                    intervals);
+
+            IntegratedBand result;
+
+            for (
+                std::size_t i = 0;
+                i <= intervals;
+                ++i)
+            {
+                const double wavelength =
+                    beginNm +
+                    step *
+                    static_cast<double>(i);
+
+                const double endpointFactor =
+                    (i == 0 || i == intervals)
+                    ? 0.5
+                    : 1.0;
+
+                const double power =
+                    relativePower(
+                        spectrum,
+                        wavelength);
+
+                if (
+                    !std::isfinite(power) ||
+                    power < 0.0)
+                {
+                    throw std::runtime_error(
+                        "Reference spectrum produced invalid power.");
+                }
+
+                const double weightedPower =
+                    endpointFactor *
+                    power;
+
+                result.power +=
+                    weightedPower;
+
+                result.wavelengthMoment +=
+                    weightedPower *
+                    wavelength;
+
+                result.cieXyz +=
+                    optics::cie1931Xyz(
+                        wavelength) *
+                    weightedPower;
+            }
+
+            result.power *=
+                step;
+
+            result.wavelengthMoment *=
+                step;
+
+            result.cieXyz *=
+                step;
+
+            return result;
+        }
     }
 
     const char* referenceSpectrumName(
@@ -197,65 +294,99 @@ namespace opticforge::raytracer
         constexpr double MaxWavelengthNm =
             780.0;
 
-        const double step =
+        const double bandWidth =
             (MaxWavelengthNm - MinWavelengthNm) /
-            static_cast<double>(sampleCount - 1);
+            static_cast<double>(
+                sampleCount);
 
-        std::vector<SpectralSample> samples;
-        samples.reserve(sampleCount);
+        std::vector<IntegratedBand> bands;
+        bands.reserve(sampleCount);
 
-        double totalWeight = 0.0;
+        double totalPower = 0.0;
 
         for (
             std::size_t i = 0;
             i < sampleCount;
             ++i)
         {
-            const double wavelength =
+            const double beginNm =
                 MinWavelengthNm +
-                step *
+                bandWidth *
                 static_cast<double>(i);
 
-            double weight =
-                relativePower(
-                    spectrum,
-                    wavelength);
+            const double endNm =
+                i + 1 == sampleCount
+                ? MaxWavelengthNm
+                : MinWavelengthNm +
+                    bandWidth *
+                    static_cast<double>(i + 1);
 
-            // Trapezoidal integration over an evenly spaced wavelength grid.
-            // The common wavelength step cancels when weights are normalized.
-            if (i == 0 || i + 1 == sampleCount)
-                weight *= 0.5;
+            IntegratedBand band =
+                integrateBand(
+                    spectrum,
+                    beginNm,
+                    endNm);
 
             if (
-                !std::isfinite(weight) ||
-                weight < 0.0)
+                !std::isfinite(band.power) ||
+                band.power <= 0.0 ||
+                !std::isfinite(
+                    band.wavelengthMoment))
             {
                 throw std::runtime_error(
-                    "Reference spectrum produced an invalid spectral weight.");
+                    "Reference spectrum produced an empty spectral band.");
             }
 
-            samples.push_back(
-                {
-                    wavelength,
-                    weight
-                });
+            totalPower +=
+                band.power;
 
-            totalWeight +=
-                weight;
+            bands.push_back(
+                band);
         }
 
         if (
-            !std::isfinite(totalWeight) ||
-            totalWeight <= 0.0)
+            !std::isfinite(totalPower) ||
+            totalPower <= 0.0)
         {
             throw std::runtime_error(
                 "Reference spectrum contains no positive visible power.");
         }
 
-        for (auto& sample : samples)
-            sample.weight /= totalWeight;
+        std::vector<SpectralSample> samples;
+        samples.reserve(sampleCount);
+
+        for (const auto& band : bands)
+        {
+            const double representativeWavelength =
+                band.wavelengthMoment /
+                band.power;
+
+            const glm::dvec3 xyzPerUnitPower =
+                band.cieXyz /
+                band.power;
+
+            if (
+                !std::isfinite(representativeWavelength) ||
+                representativeWavelength <= 0.0 ||
+                !std::isfinite(xyzPerUnitPower.x) ||
+                !std::isfinite(xyzPerUnitPower.y) ||
+                !std::isfinite(xyzPerUnitPower.z))
+            {
+                throw std::runtime_error(
+                    "Reference spectrum produced invalid integrated color data.");
+            }
+
+            samples.push_back(
+                {
+                    representativeWavelength,
+                    band.power /
+                        totalPower,
+                    xyzPerUnitPower
+                });
+        }
 
         return samples;
     }
+
 
 } // namespace opticforge::raytracer
