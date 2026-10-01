@@ -225,6 +225,7 @@ namespace opticforge::ui {
 		drawPsfTraceWindow();
 		drawPrimitiveManipulationWindow(
 			project,
+			materialLibrary,
 			traceController,
 			sceneCommands);
 
@@ -1617,6 +1618,7 @@ namespace opticforge::ui {
 	}
 	void UI::drawPrimitiveManipulationWindow(
 		telescope::TelescopeProject& project,
+		optics::MaterialLibrary& materialLibrary,
 		raytracer::TraceController& control,
 		const SceneCommands& sceneCommands)
 	{
@@ -1849,6 +1851,133 @@ namespace opticforge::ui {
 					glm::dvec3(0.0));
 
 				control.invalidate();
+			}
+
+			//
+			// ---------------------------------------------------------
+			// Lens material
+			// ---------------------------------------------------------
+			//
+
+			if (auto* lens =
+				std::get_if<telescope::Lens>(
+					primitive))
+			{
+				ImGui::Spacing();
+
+				ImGui::TextUnformatted(
+					"Optical Properties");
+
+				ImGui::Separator();
+
+				auto* frontInterface =
+					std::get_if<
+						optics::RefractiveInterface>(
+							&lens->
+								frontSurface.
+								opticalInterface().
+								type());
+
+				auto* rearInterface =
+					std::get_if<
+						optics::RefractiveInterface>(
+							&lens->
+								rearSurface.
+								opticalInterface().
+								type());
+
+				if (
+					frontInterface &&
+					rearInterface)
+				{
+					const bool sameMaterial =
+						frontInterface->
+							positiveSideMaterial ==
+						rearInterface->
+							negativeSideMaterial;
+
+					const std::string currentKey =
+						sameMaterial
+						? frontInterface->
+							positiveSideMaterial
+						: std::string{};
+
+					const optics::Material*
+						currentMaterial =
+							sameMaterial
+							? materialLibrary.find(
+								currentKey)
+							: nullptr;
+
+					const char* preview =
+						!sameMaterial
+							? "Mixed / custom"
+							: currentMaterial
+								? currentMaterial->
+									name.c_str()
+								: currentKey.c_str();
+
+					if (ImGui::BeginCombo(
+						"Material",
+						preview))
+					{
+						for (
+							const auto& material :
+								materialLibrary.materials())
+						{
+							if (!std::holds_alternative<
+								optics::IsotropicOptics>(
+									material.optics))
+							{
+								continue;
+							}
+
+							const bool selected =
+								sameMaterial &&
+								material.key ==
+									currentKey;
+
+							if (ImGui::Selectable(
+								material.name.c_str(),
+								selected))
+							{
+								// Preserve the media surrounding the
+								// lens while replacing only the glass.
+								frontInterface->
+									positiveSideMaterial =
+										material.key;
+
+								rearInterface->
+									negativeSideMaterial =
+										material.key;
+
+								control.invalidate();
+							}
+
+							if (selected)
+								ImGui::SetItemDefaultFocus();
+						}
+
+						ImGui::EndCombo();
+					}
+
+					if (sameMaterial)
+					{
+						ImGui::TextDisabled(
+							"%s",
+							currentKey.c_str());
+					}
+					else
+					{
+						ImGui::TextDisabled(
+							"Front/rear lens materials differ.");
+					}
+				}
+				else
+				{
+					ImGui::TextDisabled(
+						"Lens surfaces are not both refractive.");
+				}
 			}
 
 			//
