@@ -37,11 +37,19 @@ namespace opticforge::renderer
 
         // Call on the main thread with a current OpenGL context,
         // after GLEW has been initialized.
+        //
+        // Synchronous: rasterizes on the calling thread, then uploads.
+        // Prefer PsfRenderController + upload() in the frame loop.
         void render(
             const raytracer::TraceResult& result,
             const telescope::ObservationPlane& plane,
             const PsfRenderSettings& settings = {},
             const PsfColorFunction& color = {});
+
+        // Upload an image produced elsewhere (e.g. by PsfRenderController
+        // on a worker thread). Main thread, current OpenGL context.
+        // Cheap: one glTexSubImage2D of width*height*4 bytes.
+        void upload(const PsfImage& image);
 
         // Call before destroying the OpenGL context.
         // The destructor also releases resources if necessary.

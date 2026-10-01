@@ -182,9 +182,18 @@ namespace opticforge::raytracer
 
         const CompletedTrace* latestResult() const noexcept
         {
-            return m_latestResult
-                ? &*m_latestResult
-                : nullptr;
+            return m_latestResult.get();
+        }
+
+
+        // Shared ownership of the latest result, for consumers that keep
+        // working on it from another thread (e.g. the async PSF job).
+        //
+        // Publishing a newer trace replaces the controller's pointer but
+        // never mutates or frees a result someone else still holds.
+        std::shared_ptr<const CompletedTrace> latestResultShared() const noexcept
+        {
+            return m_latestResult;
         }
 
 
@@ -266,7 +275,7 @@ namespace opticforge::raytracer
 
         std::future<JobOutcome> m_job;
 
-        std::optional<CompletedTrace> m_latestResult;
+        std::shared_ptr<const CompletedTrace> m_latestResult;
 
         std::string m_errorMessage;
     };

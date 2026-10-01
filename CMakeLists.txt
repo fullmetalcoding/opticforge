@@ -240,6 +240,8 @@ set(OPTICFORGE_SOURCES
     src/renderer/PsfRasterizer.cpp
     src/renderer/PsfTextureRenderer.h
     src/renderer/PsfTextureRenderer.cpp
+    src/renderer/PsfRenderController.h
+    src/renderer/PsfRenderController.cpp
     src/renderer/RayPathRenderer.cpp
     src/renderer/RayPathGeometry.cpp
     src/renderer/PickingFrameBuffer.cpp
@@ -572,6 +574,7 @@ if(BUILD_TESTING)
     add_executable(opticforge_psf_rasterizer_tests
         tests/PsfRasterizerTests.cpp
         src/renderer/PsfRasterizer.cpp
+        src/renderer/PsfRenderController.cpp
         src/optics/Colorimetry.cpp
         src/raytracer/ReferenceSpectrum.cpp
         src/optics/Transform.cpp
@@ -585,7 +588,8 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     target_link_libraries(opticforge_psf_rasterizer_tests PRIVATE
-        glm::glm)
+        glm::glm
+        Threads::Threads)
 
     add_test(
         NAME psf_wavelength_colors

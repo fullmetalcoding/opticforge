@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "renderer/PsfRasterizer.h"
+#include "renderer/PsfRenderController.h"
 #include "raytracer/ReferenceSpectrum.h"
 
 #include <algorithm>
@@ -10,6 +11,12 @@
 #include <cstdint>
 #include <iostream>
 #include <utility>
+#include <atomic>
+#include <chrono>
+#include <cstdlib>
+#include <memory>
+#include <optional>
+#include <thread>
 
 namespace
 {
@@ -64,6 +71,60 @@ namespace
 
         result.paths.push_back(
             std::move(path));
+
+        return result;
+    }
+
+    // Many rays spread over a few hundred pixels, with lateral colour, so
+    // footprints cross row-band boundaries.
+    opticforge::raytracer::TraceResult
+        makeScatteredSpot(
+            std::size_t count)
+    {
+        using namespace opticforge;
+
+        raytracer::TraceResult result;
+        result.paths.reserve(count);
+
+        std::uint64_t state = 0x9E3779B97F4A7C15ull;
+
+        const auto next = [&state]()
+            {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                return
+                    static_cast<double>(state >> 11) /
+                    9007199254740992.0;
+            };
+
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            raytracer::RayPath path;
+
+            path.termination =
+                raytracer::RayTermination::DetectorHit;
+
+            raytracer::RayInteraction prior;
+            prior.primitiveId = 42;
+
+            raytracer::RayInteraction hit;
+            hit.primitiveId = 0;
+
+            const double wavelength = 420.0 + 260.0 * next();
+
+            hit.hit.position = glm::dvec3(
+                (next() - 0.5) * 0.05 + (wavelength - 550.0) * 1e-4,
+                (next() - 0.5) * 0.05,
+                0.0);
+
+            hit.incoming.wavelength = wavelength;
+            hit.incoming.intensity = 0.25 + next();
+
+            path.interactions.push_back(prior);
+            path.interactions.push_back(hit);
+            result.paths.push_back(std::move(path));
+        }
 
         return result;
     }
@@ -299,6 +360,164 @@ int main()
                 d65Rgb[2]
             }) <= 5,
         "co-located D65 spectrum renders near neutral white");
+
+    // ------------------------------------------------------------------
+    // Parallel / async rasterization.
+    // ------------------------------------------------------------------
+    {
+        const auto scattered = makeScatteredSpot(5000);
+
+        for (const double sigma : { 1.25, 3.0 })
+        {
+            renderer::PsfRenderSettings s;
+            s.width = 160;
+            s.height = 128;
+            s.sigmaPixels = sigma;
+
+            renderer::PsfExecution exact1;
+            exact1.threads = 1;
+            exact1.allowSeparable = false;
+
+            renderer::PsfExecution exact4 = exact1;
+            exact4.threads = 4;
+
+            const auto serial =
+                renderer::rasterizePsf(scattered, plane, s, {}, exact1);
+
+            const auto parallel =
+                renderer::rasterizePsf(scattered, plane, s, {}, exact4);
+
+            check(
+                serial.rgba == parallel.rgba &&
+                serial.center == parallel.center &&
+                serial.fieldSize == parallel.fieldSize,
+                "PSF output is identical for 1 and 4 threads");
+
+            renderer::PsfExecution fast;
+            fast.threads = 4;
+
+            const auto approx =
+                renderer::rasterizePsf(scattered, plane, s, {}, fast);
+
+            int maxDiff = 0;
+
+            for (std::size_t i = 0; i < serial.rgba.size(); ++i)
+            {
+                maxDiff = std::max(
+                    maxDiff,
+                    std::abs(
+                        static_cast<int>(serial.rgba[i]) -
+                        static_cast<int>(approx.rgba[i])));
+            }
+
+            check(
+                maxDiff <= 2,
+                "separable large-sigma path matches exact splatting");
+        }
+
+        // Tonemap-only settings reuse an accumulation.
+        {
+            renderer::PsfRenderSettings a;
+            renderer::PsfRenderSettings b = a;
+            b.exposure = 3.0;
+            b.background = renderer::PsfBackground::White;
+            b.normalizePeak = false;
+
+            check(
+                renderer::psfAccumulationSettingsEqual(a, b),
+                "exposure/background/normalize do not invalidate accumulation");
+
+            b.sigmaPixels = 2.0;
+
+            check(
+                !renderer::psfAccumulationSettingsEqual(a, b),
+                "sigma invalidates accumulation");
+        }
+
+        // Cancellation.
+        {
+            std::atomic<bool> cancel{ true };
+
+            renderer::PsfExecution execution;
+            execution.cancel = &cancel;
+
+            bool cancelled = false;
+
+            try
+            {
+                (void)renderer::rasterizePsf(
+                    scattered, plane, {}, {}, execution);
+            }
+            catch (const renderer::PsfCancelled&)
+            {
+                cancelled = true;
+            }
+
+            check(cancelled, "a set cancel flag aborts rasterization");
+        }
+
+        // Background controller: latest request wins and the result
+        // matches a synchronous render of that request.
+        {
+            auto trace = std::make_shared<raytracer::CompletedTrace>();
+            trace->result = scattered;
+            trace->observationPlane = plane;
+
+            renderer::PsfRenderSettings first;
+            first.sigmaPixels = 6.0;
+
+            renderer::PsfRenderSettings last;
+            last.sigmaPixels = 1.5;
+            last.exposure = 2.0;
+
+            renderer::PsfRenderController controller;
+            controller.request(trace, 1, first);
+            controller.request(trace, 1, last);
+
+            std::optional<renderer::PsfImage> latest;
+
+            const auto deadline =
+                std::chrono::steady_clock::now() +
+                std::chrono::seconds(20);
+
+            while (
+                controller.busy() &&
+                std::chrono::steady_clock::now() < deadline)
+            {
+                if (auto image = controller.poll())
+                    latest = std::move(image);
+
+                std::this_thread::sleep_for(
+                    std::chrono::milliseconds(1));
+            }
+
+            if (auto image = controller.poll())
+                latest = std::move(image);
+
+            const auto expected =
+                renderer::rasterizePsf(scattered, plane, last);
+
+            check(
+                latest && latest->rgba == expected.rgba,
+                "async controller delivers the latest request's image");
+
+            // Tonemap-only follow-up.
+            renderer::PsfRenderSettings brighter = last;
+            brighter.exposure = 5.0;
+
+            controller.request(trace, 1, brighter);
+
+            std::optional<renderer::PsfImage> retoned;
+
+            while (!retoned)
+                retoned = controller.poll();
+
+            check(
+                retoned->rgba ==
+                renderer::rasterizePsf(scattered, plane, brighter).rgba,
+                "tonemap-only change reuses accumulation correctly");
+        }
+    }
 
     if (failures != 0)
     {
