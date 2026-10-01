@@ -182,6 +182,7 @@ namespace opticforge::ui
 
         void drawPrimitiveManipulationWindow(
             telescope::TelescopeProject& project,
+            optics::MaterialLibrary& materialLibrary,
             raytracer::TraceController& control,
             const SceneCommands& sceneCommands);
 
