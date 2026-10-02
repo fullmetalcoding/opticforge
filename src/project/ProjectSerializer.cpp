@@ -415,6 +415,27 @@ namespace opticforge::project
                     else if constexpr (
                         std::is_same_v<
                         Interface,
+                        optics::DiffractionGratingInterface>)
+                    {
+                        return {
+                            { "type", "diffraction-grating" },
+                            {
+                                "groovesPerMm",
+                                concreteInterface.groovesPerMm
+                            },
+                            {
+                                "order",
+                                concreteInterface.order
+                            },
+                            {
+                                "grooveAngleDegrees",
+                                concreteInterface.grooveAngleDegrees
+                            }
+                        };
+                    }
+                    else if constexpr (
+                        std::is_same_v<
+                        Interface,
                         optics::DetectorInterface>)
                     {
                         return {
@@ -466,6 +487,20 @@ namespace opticforge::project
                     optics::ReflectiveInterface{
                         value.at(
                             "reflectivity").get<double>()
+                    }
+                };
+            }
+
+            if (type == "diffraction-grating")
+            {
+                return optics::OpticalInterface{
+                    optics::DiffractionGratingInterface{
+                        value.at(
+                            "groovesPerMm").get<double>(),
+                        value.at(
+                            "order").get<int>(),
+                        value.at(
+                            "grooveAngleDegrees").get<double>()
                     }
                 };
             }
@@ -601,6 +636,25 @@ namespace opticforge::project
                         else if constexpr (
                             std::is_same_v<
                             Primitive,
+                            telescope::DiffractionGrating>)
+                        {
+                            return {
+                                { "type", "diffraction-grating" },
+                                {
+                                    "transform",
+                                    serializeTransform(
+                                        primitive.transform)
+                                },
+                                {
+                                    "surface",
+                                    serializeOpticalSurface(
+                                        primitive.surface)
+                                }
+                            };
+                        }
+                        else if constexpr (
+                            std::is_same_v<
+                            Primitive,
                             telescope::Detector>)
                         {
                             return {
@@ -717,6 +771,25 @@ namespace opticforge::project
                 return {
                     id,
                     std::move(mirror),
+                    name
+                };
+            }
+
+            if (type == "diffraction-grating")
+            {
+                telescope::DiffractionGrating grating;
+
+                grating.transform =
+                    deserializeTransform(
+                        value.at("transform"));
+
+                grating.surface =
+                    deserializeOpticalSurface(
+                        value.at("surface"));
+
+                return {
+                    id,
+                    std::move(grating),
                     name
                 };
             }
@@ -966,6 +1039,7 @@ namespace opticforge::project
 
         if (
             version != 1 &&
+            version != 2 &&
             version != FormatVersion)
         {
             fail(

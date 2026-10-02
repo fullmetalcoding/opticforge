@@ -247,6 +247,212 @@ int main()
             "chromatic refractive rays produce outgoing rays");
     }
 
+    // A planar reflective grating should follow m * lambda / d.
+    telescope::DiffractionGrating grating;
+    grating.surface.setGeometry(
+        optics::PlaneGeometry{});
+
+    grating.surface.aperture().setRectangular(
+        100.0,
+        100.0);
+
+    grating.surface.opticalInterface().setDiffractionGrating(
+        600.0,
+        1,
+        0.0);
+
+    telescope::ObservationPlane gratingPlane;
+    gratingPlane.transform.setPosition(
+        { 0.0, 0.0, -1000.0 });
+
+    optics::OpticalRay gratingRay;
+    gratingRay.ray =
+        optics::Ray(
+            { 0.0, 0.0, -10.0 },
+            { 0.0, 0.0, 1.0 });
+
+    gratingRay.wavelength =
+        500.0;
+
+    const auto gratingPath =
+        raytracer::RayTracer{}.traceRay(
+            gratingRay,
+            {
+                telescope::PrimitiveRecord{
+                    60,
+                    grating,
+                    "test grating"
+                }
+            },
+            gratingPlane,
+            1);
+
+    check(
+        gratingPath.interactions.size() == 1,
+        "grating ray records one interaction");
+
+    if (
+        gratingPath.interactions.size() == 1 &&
+        gratingPath.interactions.front().outgoing)
+    {
+        const auto& direction =
+            gratingPath.interactions.front().
+            outgoing->ray.direction;
+
+        check(
+            std::abs(direction.x - 0.3) <
+                1.0e-12,
+            "600 groove/mm grating gives expected first-order X direction cosine at 500 nm");
+
+        check(
+            std::abs(
+                direction.z +
+                std::sqrt(1.0 - 0.3 * 0.3)) <
+                1.0e-12,
+            "grating reflects into the incident half-space");
+    }
+    else
+    {
+        check(
+            false,
+            "grating produces an outgoing first-order ray");
+    }
+
+    optics::OpticalRay blueGratingRay =
+        gratingRay;
+
+    blueGratingRay.wavelength =
+        450.0;
+
+    optics::OpticalRay redGratingRay =
+        gratingRay;
+
+    redGratingRay.wavelength =
+        650.0;
+
+    const auto blueGratingPath =
+        raytracer::RayTracer{}.traceRay(
+            blueGratingRay,
+            {
+                telescope::PrimitiveRecord{
+                    63,
+                    grating,
+                    "blue grating"
+                }
+            },
+            gratingPlane,
+            1);
+
+    const auto redGratingPath =
+        raytracer::RayTracer{}.traceRay(
+            redGratingRay,
+            {
+                telescope::PrimitiveRecord{
+                    64,
+                    grating,
+                    "red grating"
+                }
+            },
+            gratingPlane,
+            1);
+
+    if (
+        blueGratingPath.interactions.size() == 1 &&
+        redGratingPath.interactions.size() == 1 &&
+        blueGratingPath.interactions.front().outgoing &&
+        redGratingPath.interactions.front().outgoing)
+    {
+        const double blueDispersion =
+            blueGratingPath.interactions.front().
+            outgoing->ray.direction.x;
+
+        const double redDispersion =
+            redGratingPath.interactions.front().
+            outgoing->ray.direction.x;
+
+        check(
+            redDispersion > blueDispersion,
+            "reflection grating angularly separates red and blue wavelengths");
+    }
+    else
+    {
+        check(
+            false,
+            "red and blue grating rays both produce outgoing orders");
+    }
+
+    // Rotating the grooves by +90 degrees should rotate dispersion from +X
+    // to -Y under the documented +Y -> +X groove-angle convention.
+    telescope::DiffractionGrating rotatedGrating =
+        grating;
+
+    rotatedGrating.surface.opticalInterface().setDiffractionGrating(
+        600.0,
+        1,
+        90.0);
+
+    const auto rotatedGratingPath =
+        raytracer::RayTracer{}.traceRay(
+            gratingRay,
+            {
+                telescope::PrimitiveRecord{
+                    61,
+                    rotatedGrating,
+                    "rotated test grating"
+                }
+            },
+            gratingPlane,
+            1);
+
+    if (
+        rotatedGratingPath.interactions.size() == 1 &&
+        rotatedGratingPath.interactions.front().outgoing)
+    {
+        const auto& direction =
+            rotatedGratingPath.interactions.front().
+            outgoing->ray.direction;
+
+        check(
+            std::abs(direction.y + 0.3) <
+                1.0e-12,
+            "groove rotation rotates the dispersion direction");
+    }
+    else
+    {
+        check(
+            false,
+            "rotated grating produces an outgoing ray");
+    }
+
+    telescope::DiffractionGrating unavailableGrating =
+        grating;
+
+    unavailableGrating.surface.opticalInterface().setDiffractionGrating(
+        2400.0,
+        1,
+        0.0);
+
+    gratingRay.wavelength =
+        700.0;
+
+    const auto unavailablePath =
+        raytracer::RayTracer{}.traceRay(
+            gratingRay,
+            {
+                telescope::PrimitiveRecord{
+                    62,
+                    unavailableGrating,
+                    "unavailable order grating"
+                }
+            },
+            gratingPlane,
+            1);
+
+    check(
+        unavailablePath.termination ==
+            raytracer::RayTermination::Blocked,
+        "non-propagating diffraction order is blocked");
+
     // The sign test must be limited to mirrors: detector incidence is two-sided.
     telescope::Detector detector;
     detector.surface.setGeometry(optics::PlaneGeometry{});

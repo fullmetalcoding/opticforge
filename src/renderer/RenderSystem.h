@@ -38,12 +38,17 @@ namespace opticforge
 		RenderObject& getOrCreateLensRenderObject(
 			telescope::PrimitiveId id,
 			const telescope::Lens& lens);
+
+        RenderObject& getOrCreateGratingRenderObject(
+            telescope::PrimitiveId id,
+            const telescope::DiffractionGrating& grating);
 		RenderSystem(float aspect); 
 		void drawProject(const telescope::TelescopeProject & project,
 			const Camera & camera);
 
 		void drawPrimitive(telescope::PrimitiveId id, const telescope::Lens & lens, const Camera& camera); 
 		void drawPrimitive(telescope::PrimitiveId id, const telescope::Mirror & mirror, const Camera& camera);
+        void drawPrimitive(telescope::PrimitiveId id, const telescope::DiffractionGrating& grating, const Camera& camera);
 		void drawPrimitive(telescope::PrimitiveId id, const telescope::Detector & detector, const Camera& camera);
 
 		std::optional<telescope::PrimitiveId> pickPrimitive(
@@ -90,6 +95,11 @@ namespace opticforge
 			telescope::PrimitiveId id,
 			const telescope::Mirror& mirror,
 			const Camera& camera);
+
+        void drawPrimitiveForPicking(
+            telescope::PrimitiveId id,
+            const telescope::DiffractionGrating& grating,
+            const Camera& camera);
 
 		void drawPrimitiveForPicking(
 			telescope::PrimitiveId id,

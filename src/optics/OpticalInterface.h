@@ -56,6 +56,20 @@ namespace opticforge::optics
 
 
     //
+    // Idealized reflective diffraction grating.
+    //
+    // grooveAngleDegrees is measured in the surface-local XY plane from
+    // local +Y toward local +X. Order 0 reduces to specular reflection.
+    //
+    struct DiffractionGratingInterface
+    {
+        double groovesPerMm = 600.0;
+        int order = 1;
+        double grooveAngleDegrees = 0.0;
+    };
+
+
+    //
     // Detector surface.
     //
     // A ray reaching this interface is recorded as a detector hit and
@@ -85,6 +99,7 @@ namespace opticforge::optics
         std::variant<
         RefractiveInterface,
         ReflectiveInterface,
+        DiffractionGratingInterface,
         DetectorInterface,
         AbsorbingInterface>;
 
@@ -113,6 +128,9 @@ namespace opticforge::optics
             const ReflectiveInterface& interface);
 
         explicit OpticalInterface(
+            const DiffractionGratingInterface& interface);
+
+        explicit OpticalInterface(
             const DetectorInterface& interface);
 
         explicit OpticalInterface(
@@ -134,12 +152,18 @@ namespace opticforge::optics
         void setReflective(
             double reflectivity = 1.0);
 
+        void setDiffractionGrating(
+            double groovesPerMm,
+            int order = 1,
+            double grooveAngleDegrees = 0.0);
+
         void setDetector();
 
         void setAbsorbing();
 
         bool isRefractive() const;
         bool isReflective() const;
+        bool isDiffractionGrating() const;
         bool isDetector() const;
         bool isAbsorbing() const;
 
