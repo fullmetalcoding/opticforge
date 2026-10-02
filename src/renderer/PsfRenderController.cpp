@@ -33,6 +33,7 @@ namespace opticforge::renderer
         }
 
         m_cancel.reset();
+        m_progress.reset();
     }
 
     bool PsfRenderController::canReuseAccumulation(
@@ -93,9 +94,11 @@ namespace opticforge::renderer
         auto trace = std::move(r.trace);
         const PsfRenderSettings settings = r.settings;
 
+        auto progress = std::make_shared<std::atomic<double>>(0.0);
+
         m_job = std::async(
             std::launch::async,
-            [trace = std::move(trace), settings, cancel, cached]() mutable
+            [trace = std::move(trace), settings, cancel, cached, progress]() mutable
             -> Outcome
             {
                 // std::async keeps the callable alive until the future is
@@ -109,11 +112,17 @@ namespace opticforge::renderer
                 {
                     PsfExecution execution;
                     execution.cancel = cancel.get();
+                    execution.progress = progress.get();
+
+                    // Accumulation dominates; tonemapping is O(pixels).
+                    constexpr double AccumulateShare = 0.95;
 
                     auto accumulation = cached;
 
                     if (!accumulation)
                     {
+                        execution.progressEnd = AccumulateShare;
+
                         accumulation =
                             std::make_shared<const PsfAccumulation>(
                                 accumulatePsf(
@@ -123,6 +132,10 @@ namespace opticforge::renderer
                                     {},
                                     execution));
                     }
+
+                    execution.progressBegin =
+                        cached ? 0.0 : AccumulateShare;
+                    execution.progressEnd = 1.0;
 
                     outcome.image =
                         tonemapPsf(*accumulation, settings, execution);
@@ -150,6 +163,7 @@ namespace opticforge::renderer
             });
 
         m_cancel = std::move(cancel);
+        m_progress = std::move(progress);
         m_running = std::move(r);
     }
 
@@ -176,6 +190,7 @@ namespace opticforge::renderer
                 m_cancel->load(std::memory_order_relaxed);
 
             m_cancel.reset();
+            m_progress.reset();
 
             if (!outcome.cancelled)
             {

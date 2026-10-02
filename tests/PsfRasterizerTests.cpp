@@ -434,6 +434,65 @@ int main()
                 "sigma invalidates accumulation");
         }
 
+        // Progress reporting: monotonic, ends at progressEnd, for the
+        // direct, separable and point paths.
+        for (const auto& [sigma, mark] : {
+            std::pair{ 1.25, renderer::PsfMark::Gaussian },
+            std::pair{ 6.0, renderer::PsfMark::Gaussian },
+            std::pair{ 1.25, renderer::PsfMark::Point } })
+        {
+            // 128x128 so sigma = 6 takes the separable path.
+            renderer::PsfRenderSettings s;
+            s.width = 128;
+            s.height = 128;
+            s.sigmaPixels = sigma;
+            s.mark = mark;
+
+            std::atomic<double> progress{ 0.0 };
+            std::atomic<bool> done{ false };
+            bool monotonic = true;
+
+            std::thread watcher([&]()
+                {
+                    double last = 0.0;
+
+                    while (!done.load())
+                    {
+                        const double now = progress.load();
+
+                        if (now < last || now > 0.5 + 1e-12)
+                            monotonic = false;
+
+                        last = now;
+                    }
+                });
+
+            renderer::PsfExecution execution;
+            execution.threads = 4;
+            execution.progress = &progress;
+            execution.progressEnd = 0.5;
+
+            const auto acc =
+                renderer::accumulatePsf(scattered, plane, s, {}, execution);
+
+            done = true;
+            watcher.join();
+
+            check(monotonic, "PSF progress never decreases or overshoots");
+            check(
+                progress.load() == 0.5,
+                "accumulatePsf progress ends at progressEnd");
+
+            execution.progressBegin = 0.5;
+            execution.progressEnd = 1.0;
+
+            (void)renderer::tonemapPsf(acc, s, execution);
+
+            check(
+                progress.load() == 1.0,
+                "tonemapPsf progress ends at 1");
+        }
+
         // Cancellation.
         {
             std::atomic<bool> cancel{ true };

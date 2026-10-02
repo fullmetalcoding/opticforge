@@ -58,6 +58,15 @@ namespace opticforge::renderer
             return m_job.valid() || m_pending.has_value();
         }
 
+        // Fraction [0, 1] of the running job that is complete, or 0 when
+        // no job is running. Main thread; safe to call every frame.
+        double progress() const noexcept
+        {
+            return m_progress
+                ? m_progress->load(std::memory_order_relaxed)
+                : 0.0;
+        }
+
         const std::string& errorMessage() const noexcept
         {
             return m_error;
@@ -97,6 +106,7 @@ namespace opticforge::renderer
 
         std::future<Outcome> m_job;
         std::shared_ptr<std::atomic<bool>> m_cancel;
+        std::shared_ptr<std::atomic<double>> m_progress;
         Request m_running;
 
         std::optional<Request> m_pending;

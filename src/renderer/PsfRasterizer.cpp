@@ -77,6 +77,85 @@ namespace opticforge::renderer
 			}
 		}
 
+		// Monotonic progress reporting into PsfExecution::progress.
+		//
+		// A call is divided into stages; stage() maps the following
+		// advance() calls onto [begin, end] of this call's share of the
+		// progress range. stage() must be called between parallel
+		// sections; advance() is thread-safe.
+		class Progress
+		{
+		public:
+			explicit Progress(const PsfExecution& execution)
+				: m_out(execution.progress),
+				m_low(execution.progressBegin),
+				m_high(execution.progressEnd)
+			{
+			}
+
+			void stage(double begin, double end, std::size_t total)
+			{
+				m_begin = begin;
+				m_end = end;
+				m_total = std::max<std::size_t>(total, 1);
+				m_done.store(0, std::memory_order_relaxed);
+				publish(begin);
+			}
+
+			void advance(std::size_t amount)
+			{
+				if (!m_out || amount == 0)
+					return;
+
+				const std::size_t done =
+					m_done.fetch_add(amount, std::memory_order_relaxed) +
+					amount;
+
+				publish(
+					m_begin +
+					(m_end - m_begin) *
+					std::min(
+						1.0,
+						static_cast<double>(done) /
+						static_cast<double>(m_total)));
+			}
+
+			void finish()
+			{
+				publish(1.0);
+			}
+
+		private:
+			void publish(double fraction)
+			{
+				if (!m_out)
+					return;
+
+				const double value =
+					m_low + (m_high - m_low) * fraction;
+
+				double current = m_out->load(std::memory_order_relaxed);
+
+				while (
+					value > current &&
+					!m_out->compare_exchange_weak(
+						current,
+						value,
+						std::memory_order_relaxed))
+				{
+				}
+			}
+
+			std::atomic<double>* m_out;
+			double m_low;
+			double m_high;
+
+			double m_begin = 0.0;
+			double m_end = 1.0;
+			std::size_t m_total = 1;
+			std::atomic<std::size_t> m_done{ 0 };
+		};
+
 		// Dynamic parallel-for over [0, count). Each index is executed
 		// exactly once; the first exception is rethrown on the caller.
 		template <typename Fn>
@@ -269,7 +348,9 @@ namespace opticforge::renderer
 			const raytracer::TraceResult& result,
 			const telescope::ObservationPlane& plane,
 			const PsfColorFunction& color,
-			const PsfExecution& execution)
+			const PsfExecution& execution,
+			Progress& progress,
+			double progressEnd)
 		{
 			const auto& paths = result.paths;
 
@@ -286,6 +367,8 @@ namespace opticforge::renderer
 				: resolveThreads(execution, chunks);
 
 			std::vector<std::vector<Sample>> partial(chunks);
+
+			progress.stage(0.0, progressEnd, chunks);
 
 			parallelFor(
 				chunks,
@@ -308,6 +391,8 @@ namespace opticforge::renderer
 						if (makeSample(paths[i], plane, color, sample))
 							out.push_back(sample);
 					}
+
+					progress.advance(1);
 				});
 
 			std::size_t total = 0;
@@ -341,8 +426,15 @@ namespace opticforge::renderer
 			const std::vector<Sample>& samples,
 			const PsfRenderSettings& s,
 			PsfAccumulation& acc,
-			const PsfExecution& execution)
+			const PsfExecution& execution,
+			Progress& progress,
+			double progressBegin)
 		{
+			// Rough cost split of the three stages below.
+			const double span = 1.0 - progressBegin;
+			const double splatEnd = progressBegin + 0.1 * span;
+			const double horizontalEnd = progressBegin + 0.4 * span;
+
 			const double sigma = s.sigmaPixels;
 			const double radius = 4.0 * sigma;
 
@@ -361,10 +453,15 @@ namespace opticforge::renderer
 			std::vector<unsigned char> rowUsed(
 				static_cast<std::size_t>(PH), 0);
 
+			progress.stage(progressBegin, splatEnd, samples.size());
+
 			for (std::size_t i = 0; i < samples.size(); ++i)
 			{
 				if ((i & 4095u) == 0)
+				{
 					throwIfCancelled(execution);
+					progress.advance(i == 0 ? 0 : 4096);
+				}
 
 				const auto& sample = samples[i];
 
@@ -443,11 +540,18 @@ namespace opticforge::renderer
 				static_cast<std::size_t>(PH) * W,
 				glm::dvec4(0.0));
 
+			progress.stage(
+				splatEnd,
+				horizontalEnd,
+				static_cast<std::size_t>(PH));
+
 			parallelFor(
 				static_cast<std::size_t>(PH),
 				threads,
 				[&](std::size_t y)
 				{
+					progress.advance(1);
+
 					if (!rowUsed[y])
 						return;
 
@@ -482,6 +586,8 @@ namespace opticforge::renderer
 				});
 
 			// Pass 2: vertical, one output row per task.
+			progress.stage(horizontalEnd, 1.0, static_cast<std::size_t>(H));
+
 			parallelFor(
 				static_cast<std::size_t>(H),
 				threads,
@@ -489,6 +595,8 @@ namespace opticforge::renderer
 				{
 					if ((y & 15u) == 0)
 						throwIfCancelled(execution);
+
+					progress.advance(1);
 
 					glm::dvec4* dst =
 						acc.accum.data() + y * static_cast<std::size_t>(W);
@@ -564,8 +672,52 @@ namespace opticforge::renderer
 	{
 		validate(s);
 
+		Progress progress(execution);
+
+		// Share of progress for walking the trace result. Measured cost is
+		// roughly 20 pixel-updates per path; splatting costs one per
+		// footprint pixel (direct) or per pass element (separable).
+		const bool gaussian = s.mark == PsfMark::Gaussian;
+
+		const double radius =
+			4.0 * s.sigmaPixels;
+
+		const bool separable =
+			gaussian &&
+			execution.allowSeparable &&
+			s.sigmaPixels >= 2.0;
+
+		const double taps = 2.0 * std::ceil(radius) + 3.0;
+
+		const double paths =
+			std::max<double>(1.0, static_cast<double>(result.paths.size()));
+
+		const double directCost =
+			gaussian ? paths * taps * taps : paths;
+
+		const double separableCost =
+			2.0 * (s.width + taps) * (s.height + taps) * taps +
+			4.0 * paths;
+
+		const double splatCost =
+			separable && directCost > 2.0 * separableCost
+			? separableCost
+			: directCost;
+
+		const double collectShare =
+			std::clamp(
+				20.0 * paths / (20.0 * paths + splatCost),
+				0.05,
+				0.6);
+
 		const std::vector<Sample> samples =
-			collectSamples(result, plane, color, execution);
+			collectSamples(
+				result,
+				plane,
+				color,
+				execution,
+				progress,
+				collectShare);
 
 		throwIfCancelled(execution);
 
@@ -650,11 +802,6 @@ namespace opticforge::renderer
 
 		acc.accum.assign(count, glm::dvec4(0.0));
 
-		const bool gaussian = s.mark == PsfMark::Gaussian;
-
-		const double radius =
-			4.0 * s.sigmaPixels;
-
 		const double divisor =
 			std::sqrt(2.0) * s.sigmaPixels;
 
@@ -666,8 +813,6 @@ namespace opticforge::renderer
 			// Cost model: direct splatting touches (2r+1)^2 pixels per
 			// sample; separable touches 4 per sample plus two 1-D passes
 			// over the (padded) image.
-			const double taps = 2.0 * std::ceil(radius) + 3.0;
-
 			const double direct =
 				static_cast<double>(samples.size()) * taps * taps;
 
@@ -678,7 +823,15 @@ namespace opticforge::renderer
 
 			if (direct > 2.0 * separable)
 			{
-				accumulateSeparable(samples, s, acc, execution);
+				accumulateSeparable(
+					samples,
+					s,
+					acc,
+					execution,
+					progress,
+					collectShare);
+
+				progress.finish();
 				return acc;
 			}
 		}
@@ -798,6 +951,13 @@ namespace opticforge::renderer
 
 		throwIfCancelled(execution);
 
+		std::size_t binEntries = 0;
+
+		for (const auto& bin : bins)
+			binEntries += bin.size();
+
+		progress.stage(collectShare, 1.0, binEntries);
+
 		parallelFor(
 			static_cast<std::size_t>(bandCount),
 			threads,
@@ -817,7 +977,10 @@ namespace opticforge::renderer
 				for (const std::uint32_t index : bins[band])
 				{
 					if ((++processed & 1023u) == 0)
+					{
 						throwIfCancelled(execution);
+						progress.advance(1024);
+					}
 
 					const auto& sample = samples[index];
 					const auto& f = footprints[index];
@@ -887,6 +1050,8 @@ namespace opticforge::renderer
 						}
 					}
 				}
+
+				progress.advance(processed & 1023u);
 			});
 
 		double peak = 0.0;
@@ -895,6 +1060,8 @@ namespace opticforge::renderer
 			peak = std::max(peak, a.w);
 
 		acc.peak = peak;
+
+		progress.finish();
 
 		return acc;
 	}
@@ -931,6 +1098,9 @@ namespace opticforge::renderer
 		const std::size_t chunks =
 			static_cast<std::size_t>(
 				(acc.height + RowsPerChunk - 1) / RowsPerChunk);
+
+		Progress progress(execution);
+		progress.stage(0.0, 1.0, chunks);
 
 		parallelFor(
 			chunks,
@@ -1042,7 +1212,11 @@ namespace opticforge::renderer
 
 					image.rgba[i * 4 + 3] = 255;
 				}
+
+				progress.advance(1);
 			});
+
+		progress.finish();
 
 		return image;
 	}

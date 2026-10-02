@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "UI.h"
+#include <cfloat>
+#include <cstdio>
+#include <algorithm>
 #include "imgui.h"
 #include <cmath>
 #include <type_traits>
@@ -1566,7 +1569,19 @@ namespace opticforge::ui {
 
 			ImGui::Separator();
 
-			const ImVec2 available = ImGui::GetContentRegionAvail();
+			// Reserve a fixed footer for the build status so the image
+			// doesn't resize when the progress bar appears/disappears.
+			const ImGuiStyle& style = ImGui::GetStyle();
+
+			const float footerHeight =
+				ImGui::GetFrameHeight() +
+				style.ItemSpacing.y * 2.0f +
+				1.0f;
+
+			ImVec2 available = ImGui::GetContentRegionAvail();
+			available.y -= footerHeight;
+
+			const ImVec2 imageAreaStart = ImGui::GetCursorPos();
 
 			if (available.x > 0.0f && available.y > 0.0f)
 			{
@@ -1610,6 +1625,53 @@ namespace opticforge::ui {
 
 					ImGui::Dummy(size);
 				}
+			}
+
+			// Footer: pinned to the bottom of the window.
+			ImGui::SetCursorPos(ImVec2(
+				imageAreaStart.x,
+				imageAreaStart.y + std::max(available.y, 0.0f)));
+
+			ImGui::Separator();
+
+			if (m_psfRendering)
+			{
+				const float fraction =
+					std::clamp(m_psfProgress, 0.0f, 1.0f);
+
+				char label[48];
+				std::snprintf(
+					label,
+					sizeof(label),
+					"Rendering PSF... %d%%",
+					static_cast<int>(fraction * 100.0f));
+
+				ImGui::ProgressBar(
+					fraction,
+					ImVec2(-FLT_MIN, 0.0f),
+					label);
+			}
+			else if (m_psfWaitingForTrace)
+			{
+				// Indeterminate: the PSF starts once the trace completes.
+				ImGui::ProgressBar(
+					-1.0f * static_cast<float>(ImGui::GetTime()),
+					ImVec2(-FLT_MIN, 0.0f),
+					"Waiting for ray trace...");
+			}
+			else if (!m_psfError.empty())
+			{
+				ImGui::AlignTextToFramePadding();
+				ImGui::TextColored(
+					ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
+					"PSF render failed: %s",
+					m_psfError.c_str());
+			}
+			else
+			{
+				ImGui::AlignTextToFramePadding();
+				ImGui::TextDisabled(
+					hasImage ? "PSF up to date" : "Idle");
 			}
 		}
 

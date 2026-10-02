@@ -96,6 +96,13 @@ namespace opticforge::renderer
 		// integrating a (8 sigma)^2 footprint per ray. Matches the exact
 		// result to within ~1/255 per channel; set false for bit-exact.
 		bool allowSeparable = true;
+
+		// Optional progress output in [progressBegin, progressEnd].
+		// Written with relaxed atomics from worker threads; values only
+		// increase during a call. Read it from any thread (e.g. the UI).
+		std::atomic<double>* progress = nullptr;
+		double progressBegin = 0.0;
+		double progressEnd = 1.0;
 	};
 
 	struct PsfCancelled : std::exception

@@ -674,6 +674,13 @@ int main(int, char**)
 			pendingSceneClick.valid =
 				false;
 		}
+		// Footer status for the PSF window (drawn inside drawUI).
+		main_ui.setPsfStatus(
+			psfJobs.busy(),
+			static_cast<float>(psfJobs.progress()),
+			main_ui.showPsf() && traceController.isRunning(),
+			psfJobs.errorMessage());
+
 		main_ui.drawUI(
 			project,
 			materialLibrary,
