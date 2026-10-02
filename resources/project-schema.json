@@ -13,7 +13,10 @@
       "const": "OpticForgeProject"
     },
     "version": {
-      "const": 1
+      "enum": [
+        1,
+        2
+      ]
     },
     "project": {
       "$ref": "#/definitions/telescopeProject"
@@ -252,10 +255,28 @@
           "const": "refractive"
         },
         "negativeSideMaterial": {
-          "type": "number"
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          ]
         },
         "positiveSideMaterial": {
-          "type": "number"
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          ]
         }
       }
     },

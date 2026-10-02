@@ -2,43 +2,97 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "BundleGenerators.h"
+#include "optics/Colorimetry.h"
+
 #include <cmath>
 #include <cstddef>
-#include <numbers>
+#include <limits>
 #include <random>
 #include <stdexcept>
 
-
 #include <glm/glm.hpp>
 
-namespace opticforge::raytracer {
+namespace opticforge::raytracer
+{
+    namespace
+    {
+        constexpr double TwoPi =
+            6.28318530717958647692;
+    }
+
     RayBundle generatePupilRayBundle(
         std::size_t numberOfRays,
         double pupilDiameter,
         double pupilDistanceMinusZ,
         double pupilElevationY,
         double offAxisAngleXRadians,
-        double offAxisAngleYRadians)
+        double offAxisAngleYRadians,
+        const RayBundleSpectrum& spectrum,
+        std::uint64_t randomSeed)
     {
         if (numberOfRays == 0)
-        {
             return {};
-        }
 
-        if (pupilDiameter <= 0.0)
+        if (
+            !std::isfinite(pupilDiameter) ||
+            pupilDiameter <= 0.0)
         {
             throw std::invalid_argument(
                 "pupilDiameter must be greater than zero.");
         }
 
-        if (pupilDistanceMinusZ < 0.0)
+        if (
+            !std::isfinite(pupilDistanceMinusZ) ||
+            pupilDistanceMinusZ < 0.0)
         {
             throw std::invalid_argument(
                 "pupilDistanceMinusZ must be non-negative.");
         }
 
+        if (
+            spectrum.mode == SpectrumMode::Monochromatic &&
+            (!std::isfinite(spectrum.wavelengthNm) ||
+             spectrum.wavelengthNm <= 0.0))
+        {
+            throw std::invalid_argument(
+                "Monochromatic wavelength must be finite and positive.");
+        }
+
+        std::vector<SpectralSample> spectralSamples;
+
+        if (spectrum.mode == SpectrumMode::Reference)
+        {
+            spectralSamples =
+                buildReferenceSpectrum(
+                    spectrum.reference,
+                    spectrum.spectralSampleCount);
+        }
+        else
+        {
+            spectralSamples.push_back(
+                {
+                    spectrum.wavelengthNm,
+                    1.0,
+                    optics::cie1931Xyz(
+                        spectrum.wavelengthNm)
+                });
+        }
+
+        if (
+            numberOfRays >
+            std::numeric_limits<std::size_t>::max() /
+            spectralSamples.size())
+        {
+            throw std::overflow_error(
+                "Expanded ray bundle size overflows size_t.");
+        }
+
+        const std::size_t expandedRayCount =
+            numberOfRays *
+            spectralSamples.size();
+
         RayBundle bundle;
-        bundle.reserve(numberOfRays);
+        bundle.reserve(expandedRayCount);
 
         const double pupilRadius =
             pupilDiameter * 0.5;
@@ -48,12 +102,6 @@ namespace opticforge::raytracer {
             pupilElevationY,
             -pupilDistanceMinusZ);
 
-        //
-        // Field direction.
-        //
-        // thetaX controls angular offset in the X-Z plane.
-        // thetaY controls angular offset in the Y-Z plane.
-        //
         const glm::dvec3 rayDirection =
             glm::normalize(
                 glm::dvec3(
@@ -61,13 +109,14 @@ namespace opticforge::raytracer {
                     std::tan(offAxisAngleYRadians),
                     1.0));
 
-        std::random_device rd;
-        std::mt19937_64 rng(rd());
+        std::mt19937_64 rng(
+            randomSeed);
 
         std::uniform_real_distribution<double>
             unitDistribution(0.0, 1.0);
 
-        for (std::size_t i = 0;
+        for (
+            std::size_t i = 0;
             i < numberOfRays;
             ++i)
         {
@@ -77,16 +126,12 @@ namespace opticforge::raytracer {
             const double v =
                 unitDistribution(rng);
 
-            //
-            // Uniform-area sampling of the circular pupil.
-            //
             const double radius =
                 pupilRadius *
                 std::sqrt(u);
 
             const double theta =
-                2.0 *
-                std::numbers::pi *
+                TwoPi *
                 v;
 
             const double x =
@@ -97,19 +142,36 @@ namespace opticforge::raytracer {
                 radius *
                 std::sin(theta);
 
-            optics::OpticalRay opticalRay;
+            const glm::dvec3 origin =
+                pupilCenter +
+                glm::dvec3(
+                    x,
+                    y,
+                    0.0);
 
-            opticalRay.ray =
-                optics::Ray(
-                    pupilCenter +
-                    glm::dvec3(
-                        x,
-                        y,
-                        0.0),
-                    rayDirection);
+            for (
+                const auto& spectralSample :
+                spectralSamples)
+            {
+                optics::OpticalRay opticalRay;
 
-            bundle.push_back(
-                opticalRay);
+                opticalRay.ray =
+                    optics::Ray(
+                        origin,
+                        rayDirection);
+
+                opticalRay.wavelength =
+                    spectralSample.wavelengthNm;
+
+                opticalRay.intensity =
+                    spectralSample.weight;
+
+                opticalRay.cieXyzPerUnitPower =
+                    spectralSample.cieXyzPerUnitPower;
+
+                bundle.push_back(
+                    std::move(opticalRay));
+            }
         }
 
         return bundle;

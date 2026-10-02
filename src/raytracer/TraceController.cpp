@@ -5,11 +5,14 @@
 
 #include "TraceController.h"
 #include "Raytracer.h"
+#include "ReferenceSpectrum.h"
+#include "optics/Colorimetry.h"
 
 #include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <exception>
+#include <limits>
 #include <mutex>
 #include <random>
 #include <stdexcept>
@@ -228,8 +231,34 @@ namespace opticforge::raytracer
 		}
 
 
+        std::size_t expandedRayCount(
+            const TraceSettings& settings)
+        {
+            const std::size_t multiplier =
+                settings.spectrumMode ==
+                    SpectrumMode::Reference
+                ? settings.spectralSampleCount
+                : 1;
+
+            if (
+                multiplier == 0 ||
+                settings.rayCount >
+                    std::numeric_limits<std::size_t>::max() /
+                    multiplier)
+            {
+                throw std::overflow_error(
+                    "Expanded ray count overflows size_t.");
+            }
+
+            return
+                settings.rayCount *
+                multiplier;
+        }
+
+
 		unsigned int resolveWorkerCount(
-			const TraceSettings& settings)
+			const TraceSettings& settings,
+            std::size_t rayCount)
 		{
 			const unsigned int hardware =
 				std::max(
@@ -260,12 +289,12 @@ namespace opticforge::raytracer
 
 
 			// There is no reason to create more workers than rays.
-			if (settings.rayCount <
+			if (rayCount <
 				static_cast<std::size_t>(workers))
 			{
 				workers =
 					static_cast<unsigned int>(
-						settings.rayCount);
+						rayCount);
 			}
 
 
@@ -427,6 +456,7 @@ namespace opticforge::raytracer
 
 	void TraceController::update(
 		const telescope::TelescopeProject& project,
+		const optics::MaterialLibrary& materialLibrary,
 		const TraceSettings& settings)
 	{
 		pollJob();
@@ -454,6 +484,7 @@ namespace opticforge::raytracer
 		{
 			startJob(
 				project,
+				materialLibrary,
 				settings);
 		}
 	}
@@ -461,6 +492,7 @@ namespace opticforge::raytracer
 
 	void TraceController::startJob(
 		const telescope::TelescopeProject& project,
+		const optics::MaterialLibrary& materialLibrary,
 		const TraceSettings& settings)
 	{
 		// Consume the pending request before attempting to start.
@@ -485,6 +517,9 @@ namespace opticforge::raytracer
 
 			snapshot.observationPlane =
 				project.getObservationPlane();
+
+            snapshot.materialLibrary =
+                materialLibrary;
 
 			snapshot.settings =
 				settings;
@@ -520,7 +555,8 @@ namespace opticforge::raytracer
 				std::move(job);
 
 			m_activeRayCount =
-				settings.rayCount;
+				expandedRayCount(
+                    settings);
 
 			m_status =
 				TraceStatus::Running;
@@ -702,12 +738,25 @@ namespace opticforge::raytracer
 			}
 
 
-			if (!positiveFinite(
-				settings.wavelengthNm))
-			{
-				throw std::invalid_argument(
-					"Wavelength must be finite and positive.");
-			}
+            if (
+                settings.spectrumMode ==
+                    SpectrumMode::Monochromatic &&
+                !positiveFinite(
+                    settings.wavelengthNm))
+            {
+                throw std::invalid_argument(
+                    "Wavelength must be finite and positive.");
+            }
+
+            if (
+                settings.spectrumMode ==
+                    SpectrumMode::Reference &&
+                !isSupportedSpectralSampleCount(
+                    settings.spectralSampleCount))
+            {
+                throw std::invalid_argument(
+                    "Spectral sample count must be 3, 7, 15, or 31.");
+            }
 
 
 			validateAperture(
@@ -767,10 +816,33 @@ namespace opticforge::raytracer
 					1.0);
 
 
+            std::vector<SpectralSample> spectralSamples;
+
+            if (
+                settings.spectrumMode ==
+                    SpectrumMode::Reference)
+            {
+                spectralSamples =
+                    buildReferenceSpectrum(
+                        settings.referenceSpectrum,
+                        settings.spectralSampleCount);
+            }
+            else
+            {
+                spectralSamples.push_back(
+                    {
+                        settings.wavelengthNm,
+                        1.0,
+                        optics::cie1931Xyz(
+                            settings.wavelengthNm)
+                    });
+            }
+
 			std::vector<optics::OpticalRay> rays;
 
 			rays.reserve(
-				settings.rayCount);
+				expandedRayCount(
+                    settings));
 
 
 			for (
@@ -791,7 +863,6 @@ namespace opticforge::raytracer
 
 				const double v =
 					uniform(rng);
-
 
 				const glm::dvec2 sample =
 					sampleAperture(
@@ -815,22 +886,29 @@ namespace opticforge::raytracer
 				}
 
 
-				optics::OpticalRay ray;
+                for (
+                    const auto& spectralSample :
+                    spectralSamples)
+                {
+                    optics::OpticalRay ray;
 
-				ray.ray =
-					optics::Ray(
-						origin,
-						direction);
+                    ray.ray =
+                        optics::Ray(
+                            origin,
+                            direction);
 
-				ray.wavelength =
-					settings.wavelengthNm;
+                    ray.wavelength =
+                        spectralSample.wavelengthNm;
 
-				ray.intensity =
-					1.0;
+                    ray.intensity =
+                        spectralSample.weight;
 
+                    ray.cieXyzPerUnitPower =
+                        spectralSample.cieXyzPerUnitPower;
 
-				rays.push_back(
-					std::move(ray));
+                    rays.push_back(
+                        std::move(ray));
+                }
 			}
 
 
@@ -865,7 +943,7 @@ namespace opticforge::raytracer
 			// writes only to uniquely owned indices, so no mutex is required
 			// around result.paths.
 			completed.result.paths.resize(
-				settings.rayCount);
+				rays.size());
 
 
 			//
@@ -875,7 +953,9 @@ namespace opticforge::raytracer
 			//
 
 			const unsigned int workerCount =
-				resolveWorkerCount(settings);
+				resolveWorkerCount(
+                    settings,
+                    rays.size());
 
 
 			// nextRay is the dynamic work queue.
@@ -929,10 +1009,10 @@ namespace opticforge::raytracer
 				{
 					try
 					{
-						// RayTracer is currently stateless, but giving each
-						// worker its own instance avoids introducing a hidden
-						// shared-state dependency if that changes later.
-						RayTracer tracer;
+                        // Each worker gets its own tracer while sharing the
+                        // immutable material library contained in the snapshot.
+						RayTracer tracer(
+                            snapshot.materialLibrary);
 
 
 						while (true)
@@ -1121,7 +1201,7 @@ namespace opticforge::raytracer
 
 			if (
 				completedRayCount !=
-				settings.rayCount)
+				rays.size())
 			{
 				throw std::runtime_error(
 					"Ray trace terminated before all rays were completed.");

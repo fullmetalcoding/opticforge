@@ -4,6 +4,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <optional>
 
 namespace opticforge::optics
 {
@@ -34,6 +35,13 @@ namespace opticforge::optics
         Ray ray; 
         double wavelength = 550.0;
         double intensity = 1.0;
+
+        // Optional colorimetric metadata for a finite spectral band.
+        // When present, this is the band's CIE XYZ response per unit radiant
+        // power. It remains unchanged as optical interactions attenuate the
+        // ray intensity.
+        std::optional<glm::dvec3>
+            cieXyzPerUnitPower;
 
     };
 

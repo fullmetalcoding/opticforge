@@ -55,9 +55,10 @@ namespace opticforge::renderer
 	// The callback can inspect the incoming wavelength, intensity,
 	// and other information in the path.
 	//
-	// Without a callback:
-	//   Black background -> white marks.
-	//   White background -> black marks.
+	// Without a callback, the renderer accumulates CIE XYZ spectral
+	// contributions carried by the incoming rays (falling back to the
+	// monochromatic CIE response for rays without band metadata), then
+	// converts the mixed result to sRGB.
 	using PsfColorFunction =
 		std::function<glm::dvec3(const raytracer::RayPath&)>;
 

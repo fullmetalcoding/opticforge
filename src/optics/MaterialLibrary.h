@@ -369,6 +369,10 @@ namespace opticforge::optics
         bool remove(
             std::string_view key);
 
+        double refractiveIndex(
+            std::string_view key,
+            double wavelengthNm) const;
+
         void clear();
 
     private:

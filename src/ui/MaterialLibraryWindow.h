@@ -16,6 +16,7 @@ namespace opticforge::ui
         std::function<void()> load;
         std::function<void()> save;
         std::function<void()> saveAs;
+        std::function<void()> changed;
     };
 
     class MaterialLibraryWindow
@@ -54,7 +55,8 @@ namespace opticforge::ui
             const optics::MaterialLibrary& library);
 
         void drawEditor(
-            optics::MaterialLibrary& library);
+            optics::MaterialLibrary& library,
+            const MaterialLibraryCommands& commands);
 
         static void drawRefractiveIndexModel(
             const char* id,

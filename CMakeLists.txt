@@ -226,12 +226,14 @@ set(OPTICFORGE_SOURCES
     src/optics/OpticalSurface.cpp
     src/optics/OpticalInterface.cpp
     src/optics/MaterialLibrary.cpp
+    src/optics/Colorimetry.cpp
     src/optics/SurfaceSeparation.cpp
     src/telescope/TelescopeProject.cpp
     src/ui/UI.cpp
     src/ui/MaterialLibraryWindow.cpp
     src/ui/TraceSettingsWindow.cpp
     src/raytracer/BundleGenerators.cpp
+    src/raytracer/ReferenceSpectrum.cpp
     src/raytracer/Raytracer.cpp
     src/raytracer/TraceController.cpp
     src/renderer/PsfRasterizer.h
@@ -492,6 +494,15 @@ add_custom_command(
             $<TARGET_FILE_DIR:opticforge>/shaders
 )
 
+add_custom_command(
+    TARGET opticforge POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            $<TARGET_FILE_DIR:opticforge>/materials
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/opticforge-starter.ofmat
+            $<TARGET_FILE_DIR:opticforge>/materials/opticforge-starter.ofmat
+)
+
 
 
 
@@ -510,7 +521,9 @@ if(BUILD_TESTING)
         src/optics/Transform.cpp
         src/optics/Aperture.cpp
         src/optics/OpticalSurface.cpp
-        src/optics/OpticalInterface.cpp)
+        src/optics/OpticalInterface.cpp
+        src/optics/MaterialLibrary.cpp
+        src/optics/Colorimetry.cpp)
     target_include_directories(opticforge_raytracer_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(opticforge_raytracer_tests PRIVATE glm::glm)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -536,6 +549,9 @@ if(BUILD_TESTING)
     add_executable(opticforge_material_library_tests
         tests/MaterialLibraryTests.cpp
         src/optics/MaterialLibrary.cpp
+        src/optics/Colorimetry.cpp
+        src/raytracer/ReferenceSpectrum.cpp
+        src/raytracer/BundleGenerators.cpp
         src/project/MaterialLibrarySerializer.cpp
         src/project/MaterialLibraryIO.cpp
         ${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp)
@@ -545,11 +561,35 @@ if(BUILD_TESTING)
 
     target_link_libraries(opticforge_material_library_tests PRIVATE
         nlohmann_json::nlohmann_json
-        nlohmann_json_schema_validator::validator)
+        nlohmann_json_schema_validator::validator
+        glm::glm)
 
     add_test(
         NAME material_library_roundtrip
-        COMMAND opticforge_material_library_tests)
+        COMMAND opticforge_material_library_tests
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/opticforge-starter.ofmat")
+
+    add_executable(opticforge_psf_rasterizer_tests
+        tests/PsfRasterizerTests.cpp
+        src/renderer/PsfRasterizer.cpp
+        src/optics/Colorimetry.cpp
+        src/raytracer/ReferenceSpectrum.cpp
+        src/optics/Transform.cpp
+        src/optics/Aperture.cpp
+        src/optics/OpticalSurface.cpp
+        src/optics/OpticalInterface.cpp
+        src/optics/PlaneGeometry.cpp
+        src/optics/ConicGeometry.cpp)
+
+    target_include_directories(opticforge_psf_rasterizer_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    target_link_libraries(opticforge_psf_rasterizer_tests PRIVATE
+        glm::glm)
+
+    add_test(
+        NAME psf_wavelength_colors
+        COMMAND opticforge_psf_rasterizer_tests)
 endif()
 # -----------------------------------------------------------------------------
 #  Install and package
@@ -558,6 +598,11 @@ endif()
 install(TARGETS opticforge RUNTIME DESTINATION .)
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/shaders/"
 DESTINATION shaders
+)
+
+install(
+    FILES "${CMAKE_SOURCE_DIR}/src/resources/opticforge-starter.ofmat"
+    DESTINATION materials
 )
  
 # SDL3.dll and anything else CMake knows we link. Vendor SDKs are invisible here

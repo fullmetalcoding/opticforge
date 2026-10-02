@@ -620,7 +620,8 @@ namespace opticforge::ui
     }
 
     void MaterialLibraryWindow::drawEditor(
-        optics::MaterialLibrary& library)
+        optics::MaterialLibrary& library,
+        const MaterialLibraryCommands& commands)
     {
         if (!m_editing)
             return;
@@ -862,6 +863,9 @@ namespace opticforge::ui
                 m_editing = false;
                 m_originalKey.reset();
                 m_error.clear();
+
+                if (commands.changed)
+                    commands.changed();
             }
             else
             {
@@ -979,10 +983,14 @@ namespace opticforge::ui
 
             if (ImGui::Button("Remove"))
             {
-                library.remove(
-                    m_selectedKey);
+                if (library.remove(
+                    m_selectedKey))
+                {
+                    m_selectedKey.clear();
 
-                m_selectedKey.clear();
+                    if (commands.changed)
+                        commands.changed();
+                }
             }
 
             if (!hasSelection)
@@ -1085,7 +1093,9 @@ namespace opticforge::ui
 
         ImGui::End();
 
-        drawEditor(library);
+        drawEditor(
+            library,
+            commands);
     }
 
 } // namespace opticforge::ui
