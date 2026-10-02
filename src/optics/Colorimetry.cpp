@@ -2,99 +2,28 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "Colorimetry.h"
+#include "Cie1931Table.h"
 
 #include <algorithm>
 #include <cmath>
 
 namespace opticforge::optics
 {
-    namespace
+    glm::dvec3 cie1931Xyz(double wavelengthNm) noexcept
     {
-        double gaussian(
-            double value)
-        {
-            return
-                std::exp(
-                    -0.5 *
-                    value *
-                    value);
-        }
-    }
-
-    glm::dvec3 cie1931Xyz(
-        double wavelengthNm) noexcept
-    {
-        if (
-            !std::isfinite(wavelengthNm) ||
-            wavelengthNm < 380.0 ||
-            wavelengthNm > 780.0)
-        {
+        if (!std::isfinite(wavelengthNm) ||
+            wavelengthNm < 380.0 || wavelengthNm > 780.0)
             return glm::dvec3(0.0);
-        }
 
-        // Wyman/Sloan/Shirley asymmetric-Gaussian fit to the
-        // CIE 1931 2-degree standard-observer curves.
-        const double xT1 =
-            (wavelengthNm - 442.0) *
-            (wavelengthNm < 442.0
-                ? 0.0624
-                : 0.0374);
-
-        const double xT2 =
-            (wavelengthNm - 599.8) *
-            (wavelengthNm < 599.8
-                ? 0.0264
-                : 0.0323);
-
-        const double xT3 =
-            (wavelengthNm - 501.1) *
-            (wavelengthNm < 501.1
-                ? 0.0490
-                : 0.0382);
-
-        const double x =
-            0.362 * gaussian(xT1) +
-            1.056 * gaussian(xT2) -
-            0.065 * gaussian(xT3);
-
-        const double yT1 =
-            (wavelengthNm - 568.8) *
-            (wavelengthNm < 568.8
-                ? 0.0213
-                : 0.0247);
-
-        const double yT2 =
-            (wavelengthNm - 530.9) *
-            (wavelengthNm < 530.9
-                ? 0.0613
-                : 0.0322);
-
-        const double y =
-            0.821 * gaussian(yT1) +
-            0.286 * gaussian(yT2);
-
-        const double zT1 =
-            (wavelengthNm - 437.0) *
-            (wavelengthNm < 437.0
-                ? 0.0845
-                : 0.0278);
-
-        const double zT2 =
-            (wavelengthNm - 459.0) *
-            (wavelengthNm < 459.0
-                ? 0.0385
-                : 0.0725);
-
-        const double z =
-            1.217 * gaussian(zT1) +
-            0.681 * gaussian(zT2);
-
-        return glm::max(
-            glm::dvec3(
-                x,
-                y,
-                z),
-            glm::dvec3(0.0));
+        const double offset = wavelengthNm - 380.0;
+        const auto lower = static_cast<std::size_t>(offset);
+        const auto upper = std::min(lower + 1, Cie1931Table.size() - 1);
+        const double fraction = offset - static_cast<double>(lower);
+        glm::dvec3 xyz;
+        for (std::size_t channel = 0; channel < 3; ++channel)
+            xyz[channel] = Cie1931Table[lower][channel] * (1.0 - fraction) +
+                Cie1931Table[upper][channel] * fraction;
+        return xyz;
     }
 
     glm::dvec3 xyzToLinearSrgb(

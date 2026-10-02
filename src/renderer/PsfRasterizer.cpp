@@ -314,19 +314,6 @@ namespace opticforge::renderer
 					optics::cie1931Xyz(
 						hit.incoming.wavelength);
 
-				// Keep non-visible diagnostic rays visible instead of
-				// silently dropping them from a spot diagram.
-				if (
-					sampleColor.x <= 0.0 &&
-					sampleColor.y <= 0.0 &&
-					sampleColor.z <= 0.0)
-				{
-					sampleColor =
-						glm::dvec3(
-							0.95047,
-							1.0,
-							1.08883);
-				}
 			}
 
 			if (!finite(sampleColor))
@@ -1149,45 +1136,23 @@ namespace opticforge::renderer
 						}
 						else
 						{
-							// Average XYZ describes the spectrum/chromaticity
-							// at this pixel; intensity separately determines
-							// spot brightness.
-							const glm::dvec3 meanXyz =
-								glm::dvec3(a) /
-								a.w;
+							// Convert summed spectral power to display light with
+							// one common exposure scale. Keep the CIE response
+							// magnitude; per-pixel chromaticity normalization
+							// would amplify weak spectral tails to full brightness.
+							const double scale = s.exposure /
+								(s.normalizePeak ? peak : 1.0);
+							const glm::dvec3 signal = glm::max(
+								optics::xyzToLinearSrgb(glm::dvec3(a)) * scale,
+								glm::dvec3(0.0));
 
-							glm::dvec3 linearColor =
-								optics::xyzToLinearSrgb(
-									meanXyz);
-
-							linearColor =
-								glm::max(
-									linearColor,
-									glm::dvec3(0.0));
-
-							const double colorPeak =
-								std::max(
-									linearColor.x,
-									std::max(
-										linearColor.y,
-										linearColor.z));
-
-							if (
-								std::isfinite(colorPeak) &&
-								colorPeak > 0.0)
-							{
-								linearColor /=
-									colorPeak;
-							}
-							else
-							{
-								linearColor =
-									glm::dvec3(1.0);
-							}
-
+							// A zero visible response leaves either background
+							// unchanged, even when the ray carries UV/IR power.
+							const double visibleCoverage = std::clamp(
+								std::max({ signal.x, signal.y, signal.z }),
+								0.0, 1.0);
 							const glm::dvec3 linearOutput =
-								background * (1.0 - coverage) +
-								linearColor * coverage;
+								background * (1.0 - visibleCoverage) + signal;
 
 							rgb =
 								optics::linearToSrgb(

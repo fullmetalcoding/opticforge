@@ -4,6 +4,7 @@
 #include "renderer/PsfRasterizer.h"
 #include "renderer/PsfRenderController.h"
 #include "raytracer/ReferenceSpectrum.h"
+#include "optics/Colorimetry.h"
 
 #include <algorithm>
 #include <array>
@@ -290,6 +291,67 @@ int main()
         channel(blue, 2) !=
             channel(red, 2),
         "different wavelengths produce different PSF colors");
+
+    // Equal power must retain the low CIE response at the spectral tails.
+    for (const double wavelength : { 300.0, 350.0, 800.0, 850.0 })
+    {
+        for (const auto background : {
+            renderer::PsfBackground::Black, renderer::PsfBackground::White })
+        {
+            auto invisibleSettings = settings;
+            invisibleSettings.background = background;
+            const auto invisible = renderer::rasterizePsf(
+                makeSingleSpot(wavelength), plane, invisibleSettings);
+            const int expected = background == renderer::PsfBackground::Black ? 0 : 255;
+            check(centerRgb(invisible) == std::array<int, 3>{expected, expected, expected},
+                "UV and IR leave the background unchanged");
+        }
+    }
+    const auto farRed = renderer::rasterizePsf(makeSingleSpot(750.0), plane, settings);
+    check(channel(farRed, 0) > 0 && channel(farRed, 1) == 0 && channel(farRed, 2) == 0,
+        "750 nm renders dim red rather than green");
+    check(channel(farRed, 0) < channel(red, 0) / 10,
+        "far-red response is not normalized to full brightness");
+    for (const double wavelength : { 700.0, 725.0, 750.0, 775.0, 780.0 })
+    {
+        const auto linear = optics::xyzToLinearSrgb(optics::cie1931Xyz(wavelength));
+        check(linear.x > 0.0 && linear.x > linear.y && linear.x > linear.z,
+            "long-wavelength CIE tail stays red-dominant");
+    }
+    {
+        auto cachedInvisible = makeSingleSpot(800.0);
+        cachedInvisible.paths.front().interactions.back().incoming.cieXyzPerUnitPower =
+            glm::dvec3(0.0);
+        check(centerRgb(renderer::rasterizePsf(cachedInvisible, plane, settings)) ==
+            std::array<int, 3>{0, 0, 0}, "cached zero XYZ is not replaced with white");
+    }
+    const auto xyz750 = optics::cie1931Xyz(750.0);
+    check(std::abs(xyz750.x - 0.0003323011) < 1e-10 &&
+        std::abs(xyz750.y - 0.00012) < 1e-10,
+        "750 nm uses tabulated CIE response");
+    for (const double wavelength : { 450.0, 550.0, 650.0, 750.0 })
+    {
+        auto low = settings;
+        low.normalizePeak = false;
+        low.exposure = 0.01;
+        auto high = low;
+        high.exposure = 0.02;
+        const auto acc = renderer::accumulatePsf(makeSingleSpot(wavelength), plane, low);
+        const auto a = centerRgb(renderer::tonemapPsf(acc, low));
+        const auto b = centerRgb(renderer::tonemapPsf(acc, high));
+        check(b[0] >= a[0] && b[1] >= a[1] && b[2] >= a[2],
+            "exposure increases spectral brightness");
+    }
+    {
+        auto mixed = makeSingleSpot(550.0);
+        auto invisible = makeSingleSpot(800.0);
+        mixed.paths.push_back(invisible.paths.front());
+        auto absolute = settings;
+        absolute.normalizePeak = false;
+        check(renderer::rasterizePsf(mixed, plane, absolute).rgba ==
+            renderer::rasterizePsf(makeSingleSpot(550.0), plane, absolute).rgba,
+            "invisible power does not contaminate a visible spectrum");
+    }
 
     const std::array<std::size_t, 4>
         sampleCounts{ 3, 7, 15, 31 };

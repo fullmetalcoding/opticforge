@@ -7,12 +7,9 @@
 
 namespace opticforge::optics
 {
-    // Approximate CIE 1931 2-degree standard-observer color-matching
-    // functions at a monochromatic wavelength in nanometres.
-    //
-    // The analytic fit follows Wyman, Sloan, and Shirley (JCGT 2013),
-    // "Simple Analytic Approximations to the CIE XYZ Color Matching
-    // Functions". Values outside 380-780 nm are treated as non-visible.
+    // CIE 1931 2-degree standard-observer color-matching functions,
+    // linearly interpolated from 1 nm tabulated values. Values outside
+    // the renderer's 380-780 nm visible range are zero.
     glm::dvec3 cie1931Xyz(
         double wavelengthNm) noexcept;
 
