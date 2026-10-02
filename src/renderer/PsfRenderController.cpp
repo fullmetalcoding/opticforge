@@ -164,25 +164,42 @@ namespace opticforge::renderer
         {
             Outcome outcome = m_job.get();
 
+            // request() sets the cancel flag only when a newer request needs
+            // a different accumulation (new trace or new geometry settings).
+            // The job polls the flag between chunks, so it can finish
+            // normally if the flag was set after its last check. Read it
+            // here as well: such a result is superseded and must not be
+            // shown, or the old trace/sigma would flash on screen until the
+            // pending job completes.
+            const bool superseded =
+                m_cancel &&
+                m_cancel->load(std::memory_order_relaxed);
+
             m_cancel.reset();
 
             if (!outcome.cancelled)
             {
                 if (!outcome.error.empty())
                 {
-                    m_error = std::move(outcome.error);
+                    if (!superseded)
+                        m_error = std::move(outcome.error);
                 }
                 else
                 {
                     m_error.clear();
 
+                    // Cache even when superseded: the accumulation is
+                    // correct for its own trace and settings.
                     m_accumulation = std::move(outcome.accumulation);
                     m_accumulationTraceVersion = m_running.traceVersion;
                     m_accumulationSettings = m_running.settings;
 
-                    // Shown even if a newer request is queued: during a
-                    // slider drag the view keeps updating at job rate.
-                    ready = std::move(outcome.image);
+                    // A queued tonemap-only change (exposure, background,
+                    // normalize) does not supersede: the image is shown so
+                    // the view keeps updating during a slider drag, and the
+                    // queued request then re-tonemaps the cached result.
+                    if (!superseded)
+                        ready = std::move(outcome.image);
                 }
             }
 

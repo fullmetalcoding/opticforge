@@ -516,6 +516,92 @@ int main()
                 retoned->rgba ==
                 renderer::rasterizePsf(scattered, plane, brighter).rgba,
                 "tonemap-only change reuses accumulation correctly");
+
+            // A job that finishes before noticing it was superseded must
+            // not be displayed. Force the race: let job A complete, then
+            // request B (different sigma) before polling.
+            {
+                renderer::PsfRenderSettings stale = last;
+                stale.sigmaPixels = 4.0;
+
+                renderer::PsfRenderSettings fresh = last;
+                fresh.sigmaPixels = 2.5;
+
+                renderer::PsfRenderController racing;
+                racing.request(trace, 1, stale);
+                racing.waitForRunningJobForTesting();
+                racing.request(trace, 1, fresh);
+
+                std::optional<renderer::PsfImage> first;
+
+                while (!first && racing.busy())
+                {
+                    first = racing.poll();
+
+                    if (!first)
+                    {
+                        std::this_thread::sleep_for(
+                            std::chrono::milliseconds(1));
+                    }
+                }
+
+                check(
+                    first &&
+                    first->rgba ==
+                    renderer::rasterizePsf(scattered, plane, fresh).rgba,
+                    "superseded PSF result is never displayed");
+
+                // Same race with a new trace version.
+                auto newer = std::make_shared<raytracer::CompletedTrace>();
+                newer->result = makeScatteredSpot(3000);
+                newer->observationPlane = plane;
+
+                renderer::PsfRenderController racingTrace;
+                racingTrace.request(trace, 1, last);
+                racingTrace.waitForRunningJobForTesting();
+                racingTrace.request(newer, 2, last);
+
+                std::optional<renderer::PsfImage> next;
+
+                while (!next && racingTrace.busy())
+                {
+                    next = racingTrace.poll();
+
+                    if (!next)
+                    {
+                        std::this_thread::sleep_for(
+                            std::chrono::milliseconds(1));
+                    }
+                }
+
+                check(
+                    next &&
+                    next->rgba ==
+                    renderer::rasterizePsf(
+                        newer->result, plane, last).rgba,
+                    "result for an older trace is never displayed");
+
+                // Tonemap-only follow-up still shows the in-flight image
+                // first, then the re-tonemapped one.
+                renderer::PsfRenderSettings dimmer = last;
+                dimmer.exposure = 0.5;
+
+                renderer::PsfRenderController racingTone;
+                racingTone.request(newer, 2, last);
+                racingTone.waitForRunningJobForTesting();
+                racingTone.request(newer, 2, dimmer);
+
+                std::optional<renderer::PsfImage> shown;
+
+                while (!(shown = racingTone.poll()))
+                {
+                }
+
+                check(
+                    shown->rgba ==
+                    renderer::rasterizePsf(newer->result, plane, last).rgba,
+                    "in-flight image is shown for a tonemap-only change");
+            }
         }
     }
 

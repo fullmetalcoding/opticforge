@@ -66,6 +66,15 @@ namespace opticforge::renderer
         // Main thread. Cancels and waits for any running job.
         void shutdown() noexcept;
 
+        // Test hook: blocks until the running job (if any) has finished,
+        // without consuming its result. Lets tests issue a request after
+        // the job's last cancellation check, deterministically.
+        void waitForRunningJobForTesting() const
+        {
+            if (m_job.valid())
+                m_job.wait();
+        }
+
     private:
         struct Request
         {
