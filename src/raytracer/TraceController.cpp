@@ -651,7 +651,8 @@ namespace opticforge::raytracer
 			else
 			{
 				m_latestResult =
-					std::move(outcome.completed);
+					std::make_shared<const CompletedTrace>(
+						std::move(*outcome.completed));
 
 				++m_resultVersion;
 

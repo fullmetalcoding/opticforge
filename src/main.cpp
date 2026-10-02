@@ -18,6 +18,7 @@
 #include "renderer/ShaderManager.h"
 #include "renderer/RenderSystem.h"
 #include "renderer/PsfTextureRenderer.h"
+#include "renderer/PsfRenderController.h"
 #include "renderer/RayPathRenderer.h"
 #include "raytracer/TraceController.h"
 #include "telescope/TelescopeProject.h"
@@ -177,6 +178,8 @@ int main(int, char**)
 
 	opticforge::raytracer::TraceSettings traceSettings;
 	opticforge::renderer::PsfTextureRenderer psfRenderer;
+	// Rasterizes the PSF on a worker thread; psfRenderer only uploads.
+	opticforge::renderer::PsfRenderController psfJobs;
 	opticforge::renderer::RayPathRenderer rayPathRenderer;
 
 	std::uint64_t displayedRayTraceVersion = 0;
@@ -671,6 +674,13 @@ int main(int, char**)
 			pendingSceneClick.valid =
 				false;
 		}
+		// Footer status for the PSF window (drawn inside drawUI).
+		main_ui.setPsfStatus(
+			psfJobs.busy(),
+			static_cast<float>(psfJobs.progress()),
+			main_ui.showPsf() && traceController.isRunning(),
+			psfJobs.errorMessage());
+
 		main_ui.drawUI(
 			project,
 			materialLibrary,
@@ -719,19 +729,13 @@ int main(int, char**)
 				displayedPsfSettingsVersion
 				))
 		{
-			if (const auto* completed = traceController.latestResult())
+			if (auto completed = traceController.latestResultShared())
 			{
-				psfRenderer.render(
-					completed->result,
-					completed->observationPlane,
+				// Non-blocking: queues (or replaces) a background job.
+				psfJobs.request(
+					std::move(completed),
+					traceController.resultVersion(),
 					main_ui.psfSettings());
-
-				main_ui.setPsfTraceTexture(
-					psfRenderer.texture(),
-					psfRenderer.width(),
-					psfRenderer.height(), 
-					psfRenderer.fieldSize()
-					);
 
 				displayedPsfTraceVersion =
 					traceController.resultVersion();
@@ -739,6 +743,19 @@ int main(int, char**)
 				displayedPsfSettingsVersion =
 					main_ui.psfSettingsVersion();
 			}
+		}
+
+		// Pick up a finished PSF image, if any. Only the texture upload
+		// happens on this thread.
+		if (auto image = psfJobs.poll())
+		{
+			psfRenderer.upload(*image);
+
+			main_ui.setPsfTraceTexture(
+				psfRenderer.texture(),
+				psfRenderer.width(),
+				psfRenderer.height(),
+				psfRenderer.fieldSize());
 		}
 		ImGui::Render();
 
@@ -883,6 +900,7 @@ int main(int, char**)
 	ImPlot::DestroyContext();
 	ImGui::DestroyContext();
 	rayPathRenderer.release();
+	psfJobs.shutdown();
 	psfRenderer.release();
 	SDL_GL_DestroyContext(gl);
 	SDL_DestroyWindow(window);
