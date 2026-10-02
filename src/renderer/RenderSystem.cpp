@@ -72,6 +72,39 @@ namespace opticforge {
 
 		return it->second;
 	}
+
+    RenderObject& RenderSystem::getOrCreateGratingRenderObject(
+        telescope::PrimitiveId id,
+        const telescope::DiffractionGrating& grating)
+    {
+        constexpr double VisualThicknessMm = 1.0;
+
+        auto it =
+            m_renderObjects.find(id);
+
+        if (it == m_renderObjects.end())
+        {
+            MeshData meshData =
+                MirrorMeshGenerator::generate(
+                    grating.surface,
+                    VisualThicknessMm);
+
+            RenderObject renderObject;
+            renderObject.mesh =
+                createMesh(meshData);
+
+            renderObject.geometryRevision = 1;
+
+            it =
+                m_renderObjects.emplace(
+                    id,
+                    std::move(renderObject))
+                .first;
+        }
+
+        return it->second;
+    }
+
 	void RenderSystem::drawProject(const telescope::TelescopeProject& project,
 		const Camera& camera)
 	{
@@ -300,6 +333,85 @@ namespace opticforge {
 		renderObj.mesh.unbind();
 		ShaderProgram::unbind();
 	}
+    void RenderSystem::drawPrimitive(
+        telescope::PrimitiveId id,
+        const telescope::DiffractionGrating& grating,
+        const Camera& camera)
+    {
+        auto& renderObj =
+            getOrCreateGratingRenderObject(
+                id,
+                grating);
+
+        m_meshShader.bind();
+
+        primitiveSetup(
+            m_meshShader,
+            grating.transform,
+            camera);
+
+        const bool hovered =
+            isHovered(id);
+
+        m_meshShader.setVec3(
+            "uBaseColor",
+            hovered
+                ? glm::vec3(1.0f, 0.75f, 0.10f)
+                : glm::vec3(0.75f, 0.62f, 0.20f));
+
+        m_meshShader.setFloat(
+            "uOpacity",
+            1.0f);
+
+        m_meshShader.setFloat(
+            "uAmbientStrength",
+            hovered ? 0.65f : 0.12f);
+
+        m_meshShader.setFloat(
+            "uDiffuseStrength",
+            0.45f);
+
+        m_meshShader.setFloat(
+            "uSpecularStrength",
+            0.9f);
+
+        m_meshShader.setFloat(
+            "uShininess",
+            96.0f);
+
+        m_meshShader.setVec3(
+            "uLightDirection",
+            { 0.0, 0.0, -1.0 });
+
+        m_meshShader.setVec3(
+            "uLightColor",
+            { 1.0, 1.0, 1.0 });
+
+        m_meshShader.setFloat(
+            "uNormalExaggeration",
+            1.0f);
+
+        m_meshShader.setFloat(
+            "uFresnelStrength",
+            0.2f);
+
+        m_meshShader.setFloat(
+            "uFresnelPower",
+            4.0f);
+
+        renderObj.mesh.bind();
+
+        glDrawElements(
+            GL_TRIANGLES,
+            renderObj.mesh.indexCount(),
+            GL_UNSIGNED_INT,
+            nullptr);
+
+        renderObj.mesh.unbind();
+
+        ShaderProgram::unbind();
+    }
+
 	void RenderSystem::drawPrimitive(telescope::PrimitiveId id,
 									 const telescope::Detector & detector,
 									 const Camera& camera)
@@ -703,6 +815,38 @@ namespace opticforge {
 
 		return id;
 	}
+    void RenderSystem::drawPrimitiveForPicking(
+        telescope::PrimitiveId id,
+        const telescope::DiffractionGrating& grating,
+        const Camera& camera)
+    {
+        auto& renderObject =
+            getOrCreateGratingRenderObject(
+                id,
+                grating);
+
+        m_pickingShader.bind();
+
+        primitiveSetup(
+            m_pickingShader,
+            grating.transform,
+            camera);
+
+        setPickingPrimitiveId(id);
+
+        renderObject.mesh.bind();
+
+        glDrawElements(
+            GL_TRIANGLES,
+            renderObject.mesh.indexCount(),
+            GL_UNSIGNED_INT,
+            nullptr);
+
+        renderObject.mesh.unbind();
+
+        ShaderProgram::unbind();
+    }
+
 	void RenderSystem::drawPrimitiveForPicking(
 		telescope::PrimitiveId,
 		const telescope::Detector&,

@@ -33,9 +33,11 @@ namespace opticforge::renderer
         const PsfRenderSettings& settings,
         const PsfColorFunction& color)
     {
-        const auto image =
-            rasterizePsf(result, plane, settings, color);
+        upload(rasterizePsf(result, plane, settings, color));
+    }
 
+    void PsfTextureRenderer::upload(const PsfImage& image)
+    {
         GLint maxSize = 0;
         glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxSize);
 

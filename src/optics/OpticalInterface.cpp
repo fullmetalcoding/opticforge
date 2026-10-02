@@ -63,6 +63,12 @@ namespace opticforge::optics
     }
 
     OpticalInterface::OpticalInterface(
+        const DiffractionGratingInterface& interface)
+        : m_type(interface)
+    {
+    }
+
+    OpticalInterface::OpticalInterface(
         const DetectorInterface& interface)
         : m_type(interface)
     {
@@ -118,6 +124,19 @@ namespace opticforge::optics
         };
     }
 
+    void OpticalInterface::setDiffractionGrating(
+        double groovesPerMm,
+        int order,
+        double grooveAngleDegrees)
+    {
+        m_type =
+            DiffractionGratingInterface{
+                groovesPerMm,
+                order,
+                grooveAngleDegrees
+            };
+    }
+
     void OpticalInterface::setDetector()
     {
         m_type =
@@ -140,6 +159,12 @@ namespace opticforge::optics
     {
         return std::holds_alternative<
             ReflectiveInterface>(m_type);
+    }
+
+    bool OpticalInterface::isDiffractionGrating() const
+    {
+        return std::holds_alternative<
+            DiffractionGratingInterface>(m_type);
     }
 
     bool OpticalInterface::isDetector() const

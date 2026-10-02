@@ -299,6 +299,31 @@ namespace opticforge::raytracer {
 							// not a transformed temporary copy.
 							candidate.surface = &surface;
 
+                            if (
+                                const auto* grating =
+                                    std::get_if<
+                                        optics::DiffractionGratingInterface>(
+                                            &surface.opticalInterface().type()))
+                            {
+                                const double angleRadians =
+                                    grating->grooveAngleDegrees *
+                                    0.017453292519943295769;
+
+                                const glm::dvec3 grooveSurfaceLocal(
+                                    std::sin(angleRadians),
+                                    std::cos(angleRadians),
+                                    0.0);
+
+                                const glm::dvec3 groovePrimitiveLocal =
+                                    surface.transform().localToWorldDirection(
+                                        grooveSurfaceLocal);
+
+                                candidate.gratingGrooveDirection =
+                                    glm::normalize(
+                                        primitive.transform.localToWorldDirection(
+                                            groovePrimitiveLocal));
+                            }
+
 							closestT = worldHit.t;
 							closest = candidate;
 						};
@@ -327,6 +352,16 @@ namespace opticforge::raytracer {
 							glm::dvec3(0.0), true);
 
 					}
+                    else if constexpr (
+                        std::is_same_v<
+                            Primitive,
+                            telescope::DiffractionGrating>)
+                    {
+                        testSurface(
+                            primitive.surface,
+                            glm::dvec3(0.0),
+                            true);
+                    }
 					else if constexpr (
 						std::is_same_v<Primitive, telescope::Detector>)
 					{
@@ -431,6 +466,16 @@ namespace opticforge::raytracer {
 					return handleRefraction(
 						incoming, intersection.hit, concrete);
 				}
+                else if constexpr (
+                    std::is_same_v<
+                        T,
+                        optics::DiffractionGratingInterface>)
+                {
+                    return handleDiffractionGrating(
+                        incoming,
+                        intersection,
+                        concrete);
+                }
 				else if constexpr (
 					std::is_same_v<T, optics::DetectorInterface>)
 				{
@@ -595,5 +640,154 @@ namespace opticforge::raytracer {
 			RayTermination::Active
 		};
 	}
+
+    RayTracer::OpticalResponse
+        RayTracer::handleDiffractionGrating(
+            const optics::OpticalRay& incoming,
+            const RayIntersection& intersection,
+            const optics::DiffractionGratingInterface& interface) const
+    {
+        if (
+            !std::isfinite(interface.groovesPerMm) ||
+            interface.groovesPerMm <= 0.0 ||
+            !std::isfinite(interface.grooveAngleDegrees) ||
+            !intersection.gratingGrooveDirection)
+        {
+            return {
+                std::nullopt,
+                RayTermination::InvalidState
+            };
+        }
+
+        const glm::dvec3 direction =
+            glm::normalize(
+                incoming.ray.direction);
+
+        const glm::dvec3 normal =
+            glm::normalize(
+                intersection.hit.normal);
+
+        glm::dvec3 groove =
+            *intersection.gratingGrooveDirection;
+
+        groove -=
+            glm::dot(groove, normal) *
+            normal;
+
+        const double grooveLength =
+            glm::length(groove);
+
+        if (
+            !std::isfinite(grooveLength) ||
+            grooveLength <= 0.0)
+        {
+            return {
+                std::nullopt,
+                RayTermination::InvalidState
+            };
+        }
+
+        groove /=
+            grooveLength;
+
+        // Positive diffraction order is defined along
+        // cross(groove, normal). For grooveAngleDegrees == 0 on a
+        // canonical +Z surface this is local +X.
+        const glm::dvec3 dispersion =
+            glm::normalize(
+                glm::cross(
+                    groove,
+                    normal));
+
+        const double alongGroove =
+            glm::dot(
+                direction,
+                groove);
+
+        const double incomingDispersion =
+            glm::dot(
+                direction,
+                dispersion);
+
+        // lambda is carried in nm and groove density is grooves/mm.
+        // lambda / d is therefore lambda_mm * groovesPerMm.
+        const double lambdaMm =
+            incoming.wavelength *
+            1.0e-6;
+
+        const double diffractionShift =
+            static_cast<double>(
+                interface.order) *
+            lambdaMm *
+            interface.groovesPerMm;
+
+        const double outgoingDispersion =
+            incomingDispersion +
+            diffractionShift;
+
+        const double tangentSquared =
+            alongGroove * alongGroove +
+            outgoingDispersion *
+                outgoingDispersion;
+
+        if (
+            !std::isfinite(tangentSquared))
+        {
+            return {
+                std::nullopt,
+                RayTermination::InvalidState
+            };
+        }
+
+        // The selected order has no propagating solution.
+        if (tangentSquared > 1.0 + 1.0e-12)
+        {
+            return {
+                std::nullopt,
+                RayTermination::Blocked
+            };
+        }
+
+        const double normalMagnitude =
+            std::sqrt(
+                std::max(
+                    0.0,
+                    1.0 - tangentSquared));
+
+        const double incomingNormal =
+            glm::dot(
+                direction,
+                normal);
+
+        const double outgoingNormalSign =
+            incomingNormal >= 0.0
+            ? -1.0
+            : 1.0;
+
+        const glm::dvec3 outgoing =
+            alongGroove * groove +
+            outgoingDispersion *
+                dispersion +
+            outgoingNormalSign *
+                normalMagnitude *
+                normal;
+
+        if (!isValidDirection(outgoing))
+        {
+            return {
+                std::nullopt,
+                RayTermination::InvalidState
+            };
+        }
+
+        return {
+            makeOutgoingRay(
+                incoming,
+                intersection.hit,
+                outgoing,
+                incoming.intensity),
+            RayTermination::Active
+        };
+    }
 
 }

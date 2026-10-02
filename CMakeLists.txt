@@ -240,6 +240,8 @@ set(OPTICFORGE_SOURCES
     src/renderer/PsfRasterizer.cpp
     src/renderer/PsfTextureRenderer.h
     src/renderer/PsfTextureRenderer.cpp
+    src/renderer/PsfRenderController.h
+    src/renderer/PsfRenderController.cpp
     src/renderer/RayPathRenderer.cpp
     src/renderer/RayPathGeometry.cpp
     src/renderer/PickingFrameBuffer.cpp
@@ -572,6 +574,7 @@ if(BUILD_TESTING)
     add_executable(opticforge_psf_rasterizer_tests
         tests/PsfRasterizerTests.cpp
         src/renderer/PsfRasterizer.cpp
+        src/renderer/PsfRenderController.cpp
         src/optics/Colorimetry.cpp
         src/raytracer/ReferenceSpectrum.cpp
         src/optics/Transform.cpp
@@ -585,11 +588,36 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     target_link_libraries(opticforge_psf_rasterizer_tests PRIVATE
-        glm::glm)
+        glm::glm
+        Threads::Threads)
 
     add_test(
         NAME psf_wavelength_colors
         COMMAND opticforge_psf_rasterizer_tests)
+
+    add_executable(opticforge_project_grating_tests
+        tests/ProjectGratingTests.cpp
+        src/project/ProjectSerializer.cpp
+        src/telescope/TelescopeProject.cpp
+        src/optics/Transform.cpp
+        src/optics/Aperture.cpp
+        src/optics/OpticalSurface.cpp
+        src/optics/OpticalInterface.cpp
+        src/optics/PlaneGeometry.cpp
+        src/optics/ConicGeometry.cpp
+        ${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp)
+
+    target_include_directories(opticforge_project_grating_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    target_link_libraries(opticforge_project_grating_tests PRIVATE
+        nlohmann_json::nlohmann_json
+        nlohmann_json_schema_validator::validator
+        glm::glm)
+
+    add_test(
+        NAME project_grating_roundtrip
+        COMMAND opticforge_project_grating_tests)
 endif()
 # -----------------------------------------------------------------------------
 #  Install and package

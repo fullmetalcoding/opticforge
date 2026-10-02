@@ -5,6 +5,7 @@
 #include "telescope/TelescopeProject.h"
 #include "raytracer/TraceController.h"
 #include "renderer/PsfRasterizer.h"
+#include <string>
 #include "renderer/RayPathGeometry.h"
 #include "MaterialLibraryWindow.h"
 #include <functional>
@@ -46,6 +47,23 @@ namespace opticforge::ui
         glm::dvec3 orientationDegrees{ 0.0, 0.0, 0.0 };
         std::string name{ "Lens" }; 
     };
+    struct AddDiffractionGratingDialogState
+    {
+        double widthMm = 100.0;
+        double heightMm = 50.0;
+
+        double groovesPerMm = 600.0;
+        int order = 1;
+
+        // Measured from local +Y toward local +X.
+        double grooveAngleDegrees = 0.0;
+
+        glm::dvec3 positionMm{ 0.0, 0.0, 0.0 };
+        glm::dvec3 orientationDegrees{ 0.0, 0.0, 0.0 };
+
+        std::string name{ "Diffraction Grating" };
+    };
+
     enum class MirrorCurvature
     {
         Concave,
@@ -126,6 +144,18 @@ namespace opticforge::ui
             m_psfTraceHeight = height;
             m_psfFieldSize = fieldsize; 
         }
+        // Per-frame PSF build status, shown in the PSF window's footer.
+        void setPsfStatus(
+            bool rendering,
+            float progress,
+            bool waitingForTrace,
+            const std::string& error)
+        {
+            m_psfRendering = rendering;
+            m_psfProgress = progress;
+            m_psfWaitingForTrace = waitingForTrace;
+            m_psfError = error;
+        }
         bool showPsf() const {
             return m_showPsfTrace;
         }
@@ -165,8 +195,13 @@ namespace opticforge::ui
         void drawAddMirrorPopup(
             telescope::TelescopeProject& project, raytracer::TraceController& control);
 
+        void drawAddDiffractionGratingPopup(
+            telescope::TelescopeProject& project,
+            raytracer::TraceController& control);
+
 		AddLensDialogState m_addLensDialog;
         AddMirrorDialogState m_addMirrorDialog;
+        AddDiffractionGratingDialogState m_addDiffractionGratingDialog;
 
         void drawPsfTraceWindow();
 
@@ -179,6 +214,10 @@ namespace opticforge::ui
         int m_psfTraceHeight = 512;
         renderer::PsfRenderSettings m_psfSettings;
         std::uint64_t m_psfSettingsVersion = 1;
+        bool m_psfRendering = false;
+        float m_psfProgress = 0.0f;
+        bool m_psfWaitingForTrace = false;
+        std::string m_psfError;
 
         void drawPrimitiveManipulationWindow(
             telescope::TelescopeProject& project,
