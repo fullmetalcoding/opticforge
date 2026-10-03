@@ -3,20 +3,11 @@
 
 #pragma once
 
-#include <cstdint>
+#include <string>
 #include <variant>
 
 namespace opticforge::optics
 {
-
-    //
-    // Temporary material identifier.
-    //
-    // Once Material.h exists, I would move MaterialId there and include
-    // Material.h from this file instead.
-    //
-    using MaterialId = std::uint64_t;
-
 
     //
     // Refractive boundary between two optical media.
@@ -31,14 +22,14 @@ namespace opticforge::optics
     //
     struct RefractiveInterface
     {
-        double negativeSideMaterial = 0;
-        double positiveSideMaterial = 0;
+        std::string negativeSideMaterial = "opticforge:vacuum";
+        std::string positiveSideMaterial = "opticforge:vacuum";
 
         RefractiveInterface() = default;
 
         RefractiveInterface(
-            double negativeSideMaterial,
-            double positiveSideMaterial);
+            std::string negativeSideMaterial,
+            std::string positiveSideMaterial);
     };
 
 
@@ -61,6 +52,20 @@ namespace opticforge::optics
 
         explicit ReflectiveInterface(
             double reflectivity);
+    };
+
+
+    //
+    // Idealized reflective diffraction grating.
+    //
+    // grooveAngleDegrees is measured in the surface-local XY plane from
+    // local +Y toward local +X. Order 0 reduces to specular reflection.
+    //
+    struct DiffractionGratingInterface
+    {
+        double groovesPerMm = 600.0;
+        int order = 1;
+        double grooveAngleDegrees = 0.0;
     };
 
 
@@ -94,6 +99,7 @@ namespace opticforge::optics
         std::variant<
         RefractiveInterface,
         ReflectiveInterface,
+        DiffractionGratingInterface,
         DetectorInterface,
         AbsorbingInterface>;
 
@@ -122,6 +128,9 @@ namespace opticforge::optics
             const ReflectiveInterface& interface);
 
         explicit OpticalInterface(
+            const DiffractionGratingInterface& interface);
+
+        explicit OpticalInterface(
             const DetectorInterface& interface);
 
         explicit OpticalInterface(
@@ -137,11 +146,16 @@ namespace opticforge::optics
             const OpticalInterfaceType& interface);
 
         void setRefractive(
-            double negativeSideMaterial,
-            double positiveSideMaterial);
+            std::string negativeSideMaterial,
+            std::string positiveSideMaterial);
 
         void setReflective(
             double reflectivity = 1.0);
+
+        void setDiffractionGrating(
+            double groovesPerMm,
+            int order = 1,
+            double grooveAngleDegrees = 0.0);
 
         void setDetector();
 
@@ -149,6 +163,7 @@ namespace opticforge::optics
 
         bool isRefractive() const;
         bool isReflective() const;
+        bool isDiffractionGrating() const;
         bool isDetector() const;
         bool isAbsorbing() const;
 

@@ -1,0 +1,946 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpticForge Material Library",
+  "description": "Material library format for OpticForge optical simulation.",
+  "type": "object",
+  "additionalProperties": false,
+
+  "required": [
+    "format",
+    "version",
+    "library",
+    "materials"
+  ],
+
+  "properties": {
+    "format": {
+      "const": "OpticForgeMaterialLibrary"
+    },
+
+    "version": {
+      "const": 1
+    },
+
+    "library": {
+      "$ref": "#/definitions/libraryMetadata"
+    },
+
+    "materials": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/material"
+      }
+    }
+  },
+
+  "definitions": {
+
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+
+    "vec3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+
+    "wavelengthRangeNm": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "min",
+        "max"
+      ],
+
+      "properties": {
+        "min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+
+        "max": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+
+    "temperatureRangeC": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "min",
+        "max"
+      ],
+
+      "properties": {
+        "min": {
+          "type": "number"
+        },
+
+        "max": {
+          "type": "number"
+        }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "properties": {
+        "source": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+
+        "sourceRevision": {
+          "type": "string"
+        },
+
+        "sourceUrl": {
+          "type": "string"
+        },
+
+        "citation": {
+          "type": "string"
+        },
+
+        "license": {
+          "type": "string"
+        },
+
+        "retrievedDate": {
+          "type": "string"
+        },
+
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+
+    "libraryMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "id",
+        "name",
+        "revision"
+      ],
+
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+
+        "name": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+
+        "revision": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+
+        "description": {
+          "type": "string"
+        },
+
+        "manufacturer": {
+          "type": "string"
+        },
+
+        "generatedBy": {
+          "type": "string"
+        },
+
+        "createdUtc": {
+          "type": "string"
+        },
+
+        "provenance": {
+          "$ref": "#/definitions/provenance"
+        }
+      }
+    },
+
+    "constantDispersion": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "refractiveIndex"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "constant"
+        },
+
+        "refractiveIndex": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+
+        "validWavelengthNm": {
+          "$ref": "#/definitions/wavelengthRangeNm"
+        }
+      }
+    },
+
+    "sellmeierDispersion": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "B",
+        "C",
+        "coefficientWavelengthUnit"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "sellmeier"
+        },
+
+        "B": {
+          "description": "Sellmeier B coefficients.",
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+
+        "C": {
+          "description": "Sellmeier C coefficients expressed in wavelengthUnit squared.",
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+
+        "coefficientWavelengthUnit": {
+          "description": "Unit used by the Sellmeier coefficients. OpticForge converts ray wavelengths internally.",
+          "enum": [
+            "um"
+          ]
+        },
+
+        "validWavelengthNm": {
+          "$ref": "#/definitions/wavelengthRangeNm"
+        }
+      }
+    },
+
+    "cauchyDispersion": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "coefficients",
+        "coefficientWavelengthUnit"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "cauchy"
+        },
+
+        "coefficients": {
+          "description": "Ordered coefficients A0, A2, A4, ... for n(lambda) = A0 + A2/lambda^2 + A4/lambda^4 + ...",
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+
+        "coefficientWavelengthUnit": {
+          "enum": [
+            "um"
+          ]
+        },
+
+        "validWavelengthNm": {
+          "$ref": "#/definitions/wavelengthRangeNm"
+        }
+      }
+    },
+
+    "schottDispersion": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "coefficients",
+        "coefficientWavelengthUnit"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "schott"
+        },
+
+        "coefficients": {
+          "description": "Schott six-coefficient dispersion formula coefficients.",
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 6,
+          "maxItems": 6
+        },
+
+        "coefficientWavelengthUnit": {
+          "enum": [
+            "um"
+          ]
+        },
+
+        "validWavelengthNm": {
+          "$ref": "#/definitions/wavelengthRangeNm"
+        }
+      }
+    },
+
+    "tabulatedRefractiveIndexSample": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "wavelengthNm",
+        "n"
+      ],
+
+      "properties": {
+        "wavelengthNm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+
+        "n": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+
+    "tabulatedDispersion": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "interpolation",
+        "samples"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "tabulated"
+        },
+
+        "interpolation": {
+          "enum": [
+            "linear",
+            "cubic"
+          ]
+        },
+
+        "extrapolation": {
+          "enum": [
+            "error",
+            "clamp"
+          ],
+          "default": "error"
+        },
+
+        "samples": {
+          "type": "array",
+          "minItems": 2,
+
+          "items": {
+            "$ref": "#/definitions/tabulatedRefractiveIndexSample"
+          }
+        }
+      }
+    },
+
+    "airConditions": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "temperatureC",
+        "pressurePa",
+        "relativeHumidity",
+        "co2Ppm"
+      ],
+
+      "properties": {
+        "temperatureC": {
+          "type": "number"
+        },
+
+        "pressurePa": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+
+        "relativeHumidity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+
+        "co2Ppm": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+
+    "airDispersion": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "formula",
+        "conditions"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "air"
+        },
+
+        "formula": {
+          "enum": [
+            "ciddor1996",
+            "edlen1966"
+          ]
+        },
+
+        "conditions": {
+          "$ref": "#/definitions/airConditions"
+        },
+
+        "validWavelengthNm": {
+          "$ref": "#/definitions/wavelengthRangeNm"
+        }
+      }
+    },
+
+    "refractiveIndexModel": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/constantDispersion"
+        },
+
+        {
+          "$ref": "#/definitions/sellmeierDispersion"
+        },
+
+        {
+          "$ref": "#/definitions/cauchyDispersion"
+        },
+
+        {
+          "$ref": "#/definitions/schottDispersion"
+        },
+
+        {
+          "$ref": "#/definitions/tabulatedDispersion"
+        },
+
+        {
+          "$ref": "#/definitions/airDispersion"
+        }
+      ]
+    },
+
+    "constantExtinction": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "k"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "constant"
+        },
+
+        "k": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+
+    "tabulatedExtinctionSample": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "wavelengthNm",
+        "k"
+      ],
+
+      "properties": {
+        "wavelengthNm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+
+        "k": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+
+    "tabulatedExtinction": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "interpolation",
+        "samples"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "tabulated"
+        },
+
+        "interpolation": {
+          "enum": [
+            "linear",
+            "cubic"
+          ]
+        },
+
+        "extrapolation": {
+          "enum": [
+            "error",
+            "clamp"
+          ],
+          "default": "error"
+        },
+
+        "samples": {
+          "type": "array",
+          "minItems": 2,
+
+          "items": {
+            "$ref": "#/definitions/tabulatedExtinctionSample"
+          }
+        }
+      }
+    },
+
+    "extinctionModel": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/constantExtinction"
+        },
+
+        {
+          "$ref": "#/definitions/tabulatedExtinction"
+        }
+      ]
+    },
+
+    "isotropicOptics": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "refractiveIndex"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "isotropic"
+        },
+
+        "refractiveIndex": {
+          "$ref": "#/definitions/refractiveIndexModel"
+        },
+
+        "extinctionCoefficient": {
+          "$ref": "#/definitions/extinctionModel"
+        }
+      }
+    },
+
+    "uniaxialOptics": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "ordinaryIndex",
+        "extraordinaryIndex"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "uniaxial"
+        },
+
+        "ordinaryIndex": {
+          "$ref": "#/definitions/refractiveIndexModel"
+        },
+
+        "extraordinaryIndex": {
+          "$ref": "#/definitions/refractiveIndexModel"
+        },
+
+        "ordinaryExtinctionCoefficient": {
+          "$ref": "#/definitions/extinctionModel"
+        },
+
+        "extraordinaryExtinctionCoefficient": {
+          "$ref": "#/definitions/extinctionModel"
+        },
+
+        "opticAxis": {
+          "description": "Canonical optic axis in material-local coordinates.",
+          "$ref": "#/definitions/vec3"
+        }
+      }
+    },
+
+    "biaxialOptics": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "xIndex",
+        "yIndex",
+        "zIndex"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "biaxial"
+        },
+
+        "xIndex": {
+          "$ref": "#/definitions/refractiveIndexModel"
+        },
+
+        "yIndex": {
+          "$ref": "#/definitions/refractiveIndexModel"
+        },
+
+        "zIndex": {
+          "$ref": "#/definitions/refractiveIndexModel"
+        },
+
+        "xExtinctionCoefficient": {
+          "$ref": "#/definitions/extinctionModel"
+        },
+
+        "yExtinctionCoefficient": {
+          "$ref": "#/definitions/extinctionModel"
+        },
+
+        "zExtinctionCoefficient": {
+          "$ref": "#/definitions/extinctionModel"
+        }
+      }
+    },
+
+    "opticalProperties": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/isotropicOptics"
+        },
+
+        {
+          "$ref": "#/definitions/uniaxialOptics"
+        },
+
+        {
+          "$ref": "#/definitions/biaxialOptics"
+        }
+      ]
+    },
+
+    "constantDnDt": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "valuePerK"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "constant"
+        },
+
+        "valuePerK": {
+          "type": "number"
+        }
+      }
+    },
+
+    "tabulatedDnDtSample": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "wavelengthNm",
+        "valuePerK"
+      ],
+
+      "properties": {
+        "wavelengthNm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+
+        "valuePerK": {
+          "type": "number"
+        }
+      }
+    },
+
+    "tabulatedDnDt": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "type",
+        "interpolation",
+        "samples"
+      ],
+
+      "properties": {
+        "type": {
+          "const": "tabulated"
+        },
+
+        "interpolation": {
+          "enum": [
+            "linear",
+            "cubic"
+          ]
+        },
+
+        "samples": {
+          "type": "array",
+          "minItems": 2,
+
+          "items": {
+            "$ref": "#/definitions/tabulatedDnDtSample"
+          }
+        }
+      }
+    },
+
+    "dnDtModel": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/constantDnDt"
+        },
+
+        {
+          "$ref": "#/definitions/tabulatedDnDt"
+        }
+      ]
+    },
+
+    "thermalProperties": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "properties": {
+        "referenceTemperatureC": {
+          "type": "number"
+        },
+
+        "validTemperatureC": {
+          "$ref": "#/definitions/temperatureRangeC"
+        },
+
+        "dnDt": {
+          "$ref": "#/definitions/dnDtModel"
+        },
+
+        "linearExpansionPerK": {
+          "type": "number"
+        }
+      }
+    },
+
+    "physicalProperties": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "properties": {
+        "densityKgM3": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+
+        "youngsModulusPa": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+
+        "poissonRatio": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 0.5
+        },
+
+        "thermalConductivityWmK": {
+          "type": "number",
+          "minimum": 0
+        },
+
+        "specificHeatJKgK": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+
+    "catalogIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "properties": {
+        "manufacturer": {
+          "type": "string"
+        },
+
+        "catalog": {
+          "type": "string"
+        },
+
+        "catalogCode": {
+          "type": "string"
+        },
+
+        "status": {
+          "enum": [
+            "current",
+            "obsolete",
+            "deprecated",
+            "experimental"
+          ]
+        }
+      }
+    },
+
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+
+      "required": [
+        "key",
+        "name",
+        "optics"
+      ],
+
+      "properties": {
+        "key": {
+          "description": "Persistent globally meaningful material key, normally library-id:material-id.",
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._-]+:[A-Za-z0-9._+\\-]+$"
+        },
+
+        "name": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+
+        "aliases": {
+          "type": "array",
+          "uniqueItems": true,
+
+          "items": {
+            "$ref": "#/definitions/nonEmptyString"
+          }
+        },
+
+        "description": {
+          "type": "string"
+        },
+
+        "category": {
+          "enum": [
+            "optical-glass",
+            "fused-silica",
+            "crystal",
+            "ceramic",
+            "polymer",
+            "liquid",
+            "gas",
+            "other"
+          ]
+        },
+
+        "catalog": {
+          "$ref": "#/definitions/catalogIdentity"
+        },
+
+        "optics": {
+          "$ref": "#/definitions/opticalProperties"
+        },
+
+        "thermal": {
+          "$ref": "#/definitions/thermalProperties"
+        },
+
+        "physical": {
+          "$ref": "#/definitions/physicalProperties"
+        },
+
+        "provenance": {
+          "$ref": "#/definitions/provenance"
+        },
+
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+
+          "items": {
+            "$ref": "#/definitions/nonEmptyString"
+          }
+        }
+      }
+    }
+  }
+}

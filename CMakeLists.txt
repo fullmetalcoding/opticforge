@@ -225,23 +225,32 @@ set(OPTICFORGE_SOURCES
     src/optics/Aperture.cpp
     src/optics/OpticalSurface.cpp
     src/optics/OpticalInterface.cpp
+    src/optics/MaterialLibrary.cpp
+    src/optics/Colorimetry.cpp
     src/optics/SurfaceSeparation.cpp
     src/telescope/TelescopeProject.cpp
     src/ui/UI.cpp
+    src/ui/MaterialLibraryWindow.cpp
     src/ui/TraceSettingsWindow.cpp
     src/raytracer/BundleGenerators.cpp
+    src/raytracer/ReferenceSpectrum.cpp
     src/raytracer/Raytracer.cpp
     src/raytracer/TraceController.cpp
     src/renderer/PsfRasterizer.h
     src/renderer/PsfRasterizer.cpp
     src/renderer/PsfTextureRenderer.h
     src/renderer/PsfTextureRenderer.cpp
+    src/renderer/PsfRenderController.h
+    src/renderer/PsfRenderController.cpp
     src/renderer/RayPathRenderer.cpp
     src/renderer/RayPathGeometry.cpp
     src/renderer/PickingFrameBuffer.cpp
     src/project/ProjectSerializer.cpp
     src/project/ProjectIO.cpp
     src/project/ProjectController.cpp
+    src/project/MaterialLibrarySerializer.cpp
+    src/project/MaterialLibraryIO.cpp
+    src/project/MaterialLibraryController.cpp
     
 )
 
@@ -269,6 +278,10 @@ source_group("Shaders" FILES ${OPTICFORGE_SHADERS})
 
 set(OPTICFORGE_PROJECT_SCHEMA_FILE
     "${CMAKE_CURRENT_SOURCE_DIR}/resources/project-schema.json"
+   
+)
+set(OPTICFORGE_MATERIAL_SCHEMA_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/material-schema.json"
 )
 
 set(OPTICFORGE_GENERATED_DIR
@@ -283,6 +296,71 @@ file(READ
     OPTICFORGE_PROJECT_SCHEMA
 )
 
+# Read the authoritative JSON schema.
+file(READ
+    "${OPTICFORGE_MATERIAL_SCHEMA_FILE}"
+    OPTICFORGE_MATERIAL_SCHEMA
+)
+
+# Encode the material schema as a byte initializer rather than substituting it
+# into one C++ string literal. The material schema is large enough to exceed
+# the single-literal limit of older MSVC toolsets.
+string(HEX
+    "${OPTICFORGE_MATERIAL_SCHEMA}"
+    OPTICFORGE_MATERIAL_SCHEMA_HEX
+)
+
+set(OPTICFORGE_MATERIAL_SCHEMA_BYTES "")
+string(LENGTH
+    "${OPTICFORGE_MATERIAL_SCHEMA_HEX}"
+    _opticforge_material_schema_hex_length
+)
+
+set(_opticforge_material_schema_hex_offset 0)
+set(_opticforge_material_schema_byte_column 0)
+
+while(
+    _opticforge_material_schema_hex_offset
+    LESS
+    _opticforge_material_schema_hex_length
+)
+    string(
+        SUBSTRING
+        "${OPTICFORGE_MATERIAL_SCHEMA_HEX}"
+        ${_opticforge_material_schema_hex_offset}
+        2
+        _opticforge_material_schema_byte
+    )
+
+    string(
+        APPEND
+        OPTICFORGE_MATERIAL_SCHEMA_BYTES
+        "0x${_opticforge_material_schema_byte}, "
+    )
+
+    math(
+        EXPR
+        _opticforge_material_schema_hex_offset
+        "${_opticforge_material_schema_hex_offset} + 2"
+    )
+
+    math(
+        EXPR
+        _opticforge_material_schema_byte_column
+        "${_opticforge_material_schema_byte_column} + 1"
+    )
+
+    if(_opticforge_material_schema_byte_column EQUAL 16)
+        string(
+            APPEND
+            OPTICFORGE_MATERIAL_SCHEMA_BYTES
+            "\n    "
+        )
+        set(_opticforge_material_schema_byte_column 0)
+    endif()
+endwhile()
+
+
 # project-schema.json is consumed through file(READ), so explicitly tell CMake
 # that changing it requires reconfiguration.
 set_property(
@@ -290,6 +368,8 @@ set_property(
     APPEND
     PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${OPTICFORGE_PROJECT_SCHEMA_FILE}"
+    "${OPTICFORGE_MATERIAL_SCHEMA_FILE}"
+
 )
 
 # Generate a C++ source file containing the schema.
@@ -298,7 +378,17 @@ configure_file(
     "${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp"
     @ONLY
 )
-set(OPTICFORGE_GENERATED_SOURCES ${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp)
+# Generate a C++ source file containing the schema.
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbeddedMaterialSchema.cpp.in"
+    "${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp"
+    @ONLY
+)
+
+set(OPTICFORGE_GENERATED_SOURCES 
+    ${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp
+    ${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp
+)
 # Add source to this project's executable.
 add_executable (opticforge ${OPTICFORGE_SOURCES} ${OPTICFORGE_SHADERS} ${OPTICFORGE_GENERATED_SOURCES})
 
@@ -406,6 +496,15 @@ add_custom_command(
             $<TARGET_FILE_DIR:opticforge>/shaders
 )
 
+add_custom_command(
+    TARGET opticforge POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            $<TARGET_FILE_DIR:opticforge>/materials
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/opticforge-starter.ofmat
+            $<TARGET_FILE_DIR:opticforge>/materials/opticforge-starter.ofmat
+)
+
 
 
 
@@ -424,13 +523,101 @@ if(BUILD_TESTING)
         src/optics/Transform.cpp
         src/optics/Aperture.cpp
         src/optics/OpticalSurface.cpp
-        src/optics/OpticalInterface.cpp)
+        src/optics/OpticalInterface.cpp
+        src/optics/MaterialLibrary.cpp
+        src/optics/Colorimetry.cpp)
     target_include_directories(opticforge_raytracer_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(opticforge_raytracer_tests PRIVATE glm::glm)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(opticforge_raytracer_tests PRIVATE TBB::tbb ${CMAKE_DL_LIBS})
     endif()
     add_test(NAME raytracer_regressions COMMAND opticforge_raytracer_tests)
+
+    add_executable(opticforge_material_schema_tests
+        tests/MaterialSchemaTests.cpp
+        ${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp)
+
+    target_include_directories(opticforge_material_schema_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    target_link_libraries(opticforge_material_schema_tests PRIVATE
+        nlohmann_json::nlohmann_json
+        nlohmann_json_schema_validator::validator)
+
+    add_test(
+        NAME material_schema_embedding
+        COMMAND opticforge_material_schema_tests)
+
+    add_executable(opticforge_material_library_tests
+        tests/MaterialLibraryTests.cpp
+        src/optics/MaterialLibrary.cpp
+        src/optics/Colorimetry.cpp
+        src/raytracer/ReferenceSpectrum.cpp
+        src/raytracer/BundleGenerators.cpp
+        src/project/MaterialLibrarySerializer.cpp
+        src/project/MaterialLibraryIO.cpp
+        ${OPTICFORGE_GENERATED_DIR}/EmbeddedMaterialSchema.cpp)
+
+    target_include_directories(opticforge_material_library_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    target_link_libraries(opticforge_material_library_tests PRIVATE
+        nlohmann_json::nlohmann_json
+        nlohmann_json_schema_validator::validator
+        glm::glm)
+
+    add_test(
+        NAME material_library_roundtrip
+        COMMAND opticforge_material_library_tests
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/opticforge-starter.ofmat")
+
+    add_executable(opticforge_psf_rasterizer_tests
+        tests/PsfRasterizerTests.cpp
+        src/renderer/PsfRasterizer.cpp
+        src/renderer/PsfRenderController.cpp
+        src/optics/Colorimetry.cpp
+        src/raytracer/ReferenceSpectrum.cpp
+        src/optics/Transform.cpp
+        src/optics/Aperture.cpp
+        src/optics/OpticalSurface.cpp
+        src/optics/OpticalInterface.cpp
+        src/optics/PlaneGeometry.cpp
+        src/optics/ConicGeometry.cpp)
+
+    target_include_directories(opticforge_psf_rasterizer_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    target_link_libraries(opticforge_psf_rasterizer_tests PRIVATE
+        glm::glm
+        Threads::Threads)
+
+    add_test(
+        NAME psf_wavelength_colors
+        COMMAND opticforge_psf_rasterizer_tests)
+
+    add_executable(opticforge_project_grating_tests
+        tests/ProjectGratingTests.cpp
+        src/project/ProjectSerializer.cpp
+        src/telescope/TelescopeProject.cpp
+        src/optics/Transform.cpp
+        src/optics/Aperture.cpp
+        src/optics/OpticalSurface.cpp
+        src/optics/OpticalInterface.cpp
+        src/optics/PlaneGeometry.cpp
+        src/optics/ConicGeometry.cpp
+        ${OPTICFORGE_GENERATED_DIR}/EmbeddedProjectSchema.cpp)
+
+    target_include_directories(opticforge_project_grating_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+    target_link_libraries(opticforge_project_grating_tests PRIVATE
+        nlohmann_json::nlohmann_json
+        nlohmann_json_schema_validator::validator
+        glm::glm)
+
+    add_test(
+        NAME project_grating_roundtrip
+        COMMAND opticforge_project_grating_tests)
 endif()
 # -----------------------------------------------------------------------------
 #  Install and package
@@ -439,6 +626,11 @@ endif()
 install(TARGETS opticforge RUNTIME DESTINATION .)
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/shaders/"
 DESTINATION shaders
+)
+
+install(
+    FILES "${CMAKE_SOURCE_DIR}/src/resources/opticforge-starter.ofmat"
+    DESTINATION materials
 )
  
 # SDL3.dll and anything else CMake knows we link. Vendor SDKs are invisible here

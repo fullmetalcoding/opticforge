@@ -4,6 +4,7 @@
 #include "OpticalInterface.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace opticforge::optics
 {
@@ -13,10 +14,13 @@ namespace opticforge::optics
     // -----------------------------------------------------------------------------
 
     RefractiveInterface::RefractiveInterface(
-        double negativeSideMaterial_,
-        double positiveSideMaterial_)
-        : negativeSideMaterial(negativeSideMaterial_),
-        positiveSideMaterial(positiveSideMaterial_)
+        std::string negativeSideMaterial_,
+        std::string positiveSideMaterial_)
+        :
+        negativeSideMaterial(
+            std::move(negativeSideMaterial_)),
+        positiveSideMaterial(
+            std::move(positiveSideMaterial_))
     {
     }
 
@@ -59,6 +63,12 @@ namespace opticforge::optics
     }
 
     OpticalInterface::OpticalInterface(
+        const DiffractionGratingInterface& interface)
+        : m_type(interface)
+    {
+    }
+
+    OpticalInterface::OpticalInterface(
         const DetectorInterface& interface)
         : m_type(interface)
     {
@@ -95,13 +105,13 @@ namespace opticforge::optics
     }
 
     void OpticalInterface::setRefractive(
-        double negativeSideMaterial,
-        double positiveSideMaterial)
+        std::string negativeSideMaterial,
+        std::string positiveSideMaterial)
     {
         m_type =
             RefractiveInterface{
-                negativeSideMaterial,
-                positiveSideMaterial
+                std::move(negativeSideMaterial),
+                std::move(positiveSideMaterial)
         };
     }
 
@@ -112,6 +122,19 @@ namespace opticforge::optics
             ReflectiveInterface{
                 reflectivity
         };
+    }
+
+    void OpticalInterface::setDiffractionGrating(
+        double groovesPerMm,
+        int order,
+        double grooveAngleDegrees)
+    {
+        m_type =
+            DiffractionGratingInterface{
+                groovesPerMm,
+                order,
+                grooveAngleDegrees
+            };
     }
 
     void OpticalInterface::setDetector()
@@ -136,6 +159,12 @@ namespace opticforge::optics
     {
         return std::holds_alternative<
             ReflectiveInterface>(m_type);
+    }
+
+    bool OpticalInterface::isDiffractionGrating() const
+    {
+        return std::holds_alternative<
+            DiffractionGratingInterface>(m_type);
     }
 
     bool OpticalInterface::isDetector() const

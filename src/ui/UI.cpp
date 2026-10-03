@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 #include "UI.h"
+#include <cfloat>
+#include <cstdio>
+#include <algorithm>
 #include "imgui.h"
 #include <cmath>
 #include <type_traits>
@@ -80,17 +83,21 @@ namespace opticforge::ui {
 				std::isfinite(degrees.z);
 		}
 	}
-	void UI::drawUI(telescope::TelescopeProject& project,
+	void UI::drawUI(
+		telescope::TelescopeProject& project,
+		optics::MaterialLibrary& materialLibrary,
 		bool& bQuit,
 		raytracer::TraceController& traceController,
 		raytracer::TraceSettings& traceSettings,
 		const ProjectCommands& projectCommands,
-		const SceneCommands& sceneCommands
+		const SceneCommands& sceneCommands,
+		const MaterialLibraryCommands& materialCommands
 	)
 	{
 		//Super janky. Refactor later to have an active menu dialog state. 
 		bool openAddLensPopup = false;
 		bool openAddMirrorPopup = false;
+        bool openAddDiffractionGratingPopup = false;
 		bool openAboutPopup = false; 
 
 
@@ -119,6 +126,13 @@ namespace opticforge::ui {
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Edit")) {
+				if (ImGui::MenuItem("Material library..."))
+				{
+					m_materialLibraryWindow.open();
+				}
+
+				ImGui::Separator();
+
 				if (ImGui::BeginMenu("Add Primitive")) {
 					if (ImGui::MenuItem("Lens..."))
 					{
@@ -128,6 +142,9 @@ namespace opticforge::ui {
 					if (ImGui::MenuItem("Mirror...")) {
 						openAddMirrorPopup = true;
 					}
+                    if (ImGui::MenuItem("Diffraction Grating...")) {
+                        openAddDiffractionGratingPopup = true;
+                    }
 
 					ImGui::EndMenu();
 				}
@@ -204,19 +221,35 @@ namespace opticforge::ui {
 		else if (openAddMirrorPopup) {
 			ImGui::OpenPopup("AddMirror");
 		}
+        else if (openAddDiffractionGratingPopup) {
+            ImGui::OpenPopup("AddDiffractionGrating");
+        }
 
 
 		drawTraceSettingsWindow(project, traceController, traceSettings);
-		drawAddLensPopup(project, traceController);
+		drawAddLensPopup(
+			project,
+			materialLibrary,
+			traceController);
 		drawAddMirrorPopup(project, traceController);
+        drawAddDiffractionGratingPopup(
+            project,
+            traceController);
 		drawPsfTraceWindow();
 		drawPrimitiveManipulationWindow(
 			project,
+			materialLibrary,
 			traceController,
 			sceneCommands);
+
+		m_materialLibraryWindow.draw(
+			materialLibrary,
+			materialCommands);
 	}
 	void UI::drawAddLensPopup(
-		telescope::TelescopeProject& project, raytracer::TraceController& control)
+		telescope::TelescopeProject& project,
+		optics::MaterialLibrary& materialLibrary,
+		raytracer::TraceController& control)
 	{
 		if (!ImGui::BeginPopupModal(
 			"AddLens",
@@ -309,12 +342,80 @@ namespace opticforge::ui {
 		ImGui::TextUnformatted("Optical Properties");
 		ImGui::Separator();
 
-		ImGui::InputDouble(
-			"Refractive Index",
-			&m_addLensDialog.refractiveIndex,
-			0.001,
-			0.01,
-			"%.6f");
+        const optics::Material* selectedMaterial =
+            materialLibrary.find(
+                m_addLensDialog.materialKey);
+
+        if (
+            !selectedMaterial ||
+            !std::holds_alternative<
+                optics::IsotropicOptics>(
+                    selectedMaterial->optics))
+        {
+            for (
+                const auto& material :
+                materialLibrary.materials())
+            {
+                if (std::holds_alternative<
+                    optics::IsotropicOptics>(
+                        material.optics))
+                {
+                    m_addLensDialog.materialKey =
+                        material.key;
+
+                    selectedMaterial =
+                        &material;
+
+                    break;
+                }
+            }
+        }
+
+        const char* materialPreview =
+            selectedMaterial
+            ? selectedMaterial->name.c_str()
+            : "No isotropic materials loaded";
+
+        if (ImGui::BeginCombo(
+            "Material",
+            materialPreview))
+        {
+            for (
+                const auto& material :
+                materialLibrary.materials())
+            {
+                if (!std::holds_alternative<
+                    optics::IsotropicOptics>(
+                        material.optics))
+                {
+                    continue;
+                }
+
+                const bool selected =
+                    material.key ==
+                    m_addLensDialog.materialKey;
+
+                if (ImGui::Selectable(
+                    material.name.c_str(),
+                    selected))
+                {
+                    m_addLensDialog.materialKey =
+                        material.key;
+                }
+
+                if (selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+
+            ImGui::EndCombo();
+        }
+
+        if (selectedMaterial)
+        {
+            ImGui::TextDisabled(
+                "%s",
+                selectedMaterial->key.c_str());
+        }
 
 		ImGui::Spacing();
 
@@ -421,7 +522,7 @@ namespace opticforge::ui {
 			std::isfinite(m_addLensDialog.diameterMm) &&
 			std::isfinite(m_addLensDialog.thicknessMm) &&
 			std::isfinite(m_addLensDialog.centralHoleMm) &&
-			std::isfinite(m_addLensDialog.refractiveIndex) &&
+            selectedMaterial != nullptr &&
 
 			m_addLensDialog.diameterMm > 0.0 &&
 			m_addLensDialog.thicknessMm > 0.0 &&
@@ -429,8 +530,6 @@ namespace opticforge::ui {
 			m_addLensDialog.centralHoleMm >= 0.0 &&
 			m_addLensDialog.centralHoleMm <
 			m_addLensDialog.diameterMm &&
-
-			m_addLensDialog.refractiveIndex > 0.0 &&
 
 			(
 				m_addLensDialog.frontPlane ||
@@ -517,8 +616,8 @@ namespace opticforge::ui {
 			lens.frontSurface.setOpticalInterface(
 				optics::OpticalInterface{
 					optics::RefractiveInterface{
-						1.0,
-						m_addLensDialog.refractiveIndex
+						"opticforge:air",
+						m_addLensDialog.materialKey
 					}
 				});
 
@@ -549,8 +648,8 @@ namespace opticforge::ui {
 			lens.rearSurface.setOpticalInterface(
 				optics::OpticalInterface{
 					optics::RefractiveInterface{
-						m_addLensDialog.refractiveIndex,
-						1.0
+						m_addLensDialog.materialKey,
+						"opticforge:air"
 					}
 				});
 
@@ -1296,6 +1395,175 @@ namespace opticforge::ui {
 
 		ImGui::EndPopup();
 	}
+    void UI::drawAddDiffractionGratingPopup(
+        telescope::TelescopeProject& project,
+        raytracer::TraceController& control)
+    {
+        if (!ImGui::BeginPopupModal(
+            "AddDiffractionGrating",
+            nullptr,
+            ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            return;
+        }
+
+        ImGui::TextUnformatted(
+            "Planar Reflective Diffraction Grating");
+        ImGui::Separator();
+
+        ImGui::InputText(
+            "Name",
+            &m_addDiffractionGratingDialog.name);
+
+        ImGui::InputDouble(
+            "Width (mm)",
+            &m_addDiffractionGratingDialog.widthMm,
+            1.0,
+            10.0,
+            "%.3f");
+
+        ImGui::InputDouble(
+            "Height (mm)",
+            &m_addDiffractionGratingDialog.heightMm,
+            1.0,
+            10.0,
+            "%.3f");
+
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Grating");
+        ImGui::Separator();
+
+        ImGui::InputDouble(
+            "Grooves / mm",
+            &m_addDiffractionGratingDialog.groovesPerMm,
+            10.0,
+            100.0,
+            "%.3f");
+
+        ImGui::InputInt(
+            "Diffraction order",
+            &m_addDiffractionGratingDialog.order,
+            1,
+            1);
+
+        ImGui::InputDouble(
+            "Groove angle (deg)",
+            &m_addDiffractionGratingDialog.grooveAngleDegrees,
+            1.0,
+            10.0,
+            "%.3f");
+
+        ImGui::TextDisabled(
+            "Groove angle is measured from local +Y toward local +X.");
+
+        ImGui::TextDisabled(
+            "Order 0 produces specular reflection.");
+
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Position");
+        ImGui::Separator();
+
+        ImGui::InputDouble(
+            "X (mm)",
+            &m_addDiffractionGratingDialog.positionMm.x,
+            1.0,
+            10.0,
+            "%.3f");
+
+        ImGui::InputDouble(
+            "Y (mm)",
+            &m_addDiffractionGratingDialog.positionMm.y,
+            1.0,
+            10.0,
+            "%.3f");
+
+        ImGui::InputDouble(
+            "Z (mm)",
+            &m_addDiffractionGratingDialog.positionMm.z,
+            1.0,
+            10.0,
+            "%.3f");
+
+        drawOrientationInputs(
+            "GratingOrientation",
+            m_addDiffractionGratingDialog.orientationDegrees);
+
+        const bool valid =
+            std::isfinite(
+                m_addDiffractionGratingDialog.widthMm) &&
+            std::isfinite(
+                m_addDiffractionGratingDialog.heightMm) &&
+            std::isfinite(
+                m_addDiffractionGratingDialog.groovesPerMm) &&
+            std::isfinite(
+                m_addDiffractionGratingDialog.grooveAngleDegrees) &&
+            m_addDiffractionGratingDialog.widthMm > 0.0 &&
+            m_addDiffractionGratingDialog.heightMm > 0.0 &&
+            m_addDiffractionGratingDialog.groovesPerMm > 0.0 &&
+            m_addDiffractionGratingDialog.order >= -100 &&
+            m_addDiffractionGratingDialog.order <= 100 &&
+            validOrientation(
+                m_addDiffractionGratingDialog.orientationDegrees);
+
+        if (!valid)
+        {
+            ImGui::TextDisabled(
+                "Dimensions and groove density must be positive; "
+                "order must be between -100 and 100.");
+
+            ImGui::BeginDisabled();
+        }
+
+        if (ImGui::Button("Add"))
+        {
+            telescope::DiffractionGrating grating;
+
+            grating.transform.setPosition(
+                m_addDiffractionGratingDialog.positionMm);
+
+            grating.transform.setEulerDegrees(
+                m_addDiffractionGratingDialog.orientationDegrees);
+
+            grating.surface.setGeometry(
+                optics::PlaneGeometry{});
+
+            grating.surface.setAperture(
+                optics::Aperture{
+                    optics::RectangularAperture{
+                        m_addDiffractionGratingDialog.widthMm,
+                        m_addDiffractionGratingDialog.heightMm
+                    }
+                });
+
+            grating.surface.setOpticalInterface(
+                optics::OpticalInterface{
+                    optics::DiffractionGratingInterface{
+                        m_addDiffractionGratingDialog.groovesPerMm,
+                        m_addDiffractionGratingDialog.order,
+                        m_addDiffractionGratingDialog.grooveAngleDegrees
+                    }
+                });
+
+            project.addPrimitive(
+                std::move(grating),
+                m_addDiffractionGratingDialog.name);
+
+            control.invalidate();
+
+            ImGui::CloseCurrentPopup();
+        }
+
+        if (!valid)
+            ImGui::EndDisabled();
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Cancel"))
+            ImGui::CloseCurrentPopup();
+
+        ImGui::EndPopup();
+    }
+
 	void UI::drawPsfTraceWindow()
 	{
 		if (!m_showPsfTrace)
@@ -1480,7 +1748,19 @@ namespace opticforge::ui {
 
 			ImGui::Separator();
 
-			const ImVec2 available = ImGui::GetContentRegionAvail();
+			// Reserve a fixed footer for the build status so the image
+			// doesn't resize when the progress bar appears/disappears.
+			const ImGuiStyle& style = ImGui::GetStyle();
+
+			const float footerHeight =
+				ImGui::GetFrameHeight() +
+				style.ItemSpacing.y * 2.0f +
+				1.0f;
+
+			ImVec2 available = ImGui::GetContentRegionAvail();
+			available.y -= footerHeight;
+
+			const ImVec2 imageAreaStart = ImGui::GetCursorPos();
 
 			if (available.x > 0.0f && available.y > 0.0f)
 			{
@@ -1525,6 +1805,53 @@ namespace opticforge::ui {
 					ImGui::Dummy(size);
 				}
 			}
+
+			// Footer: pinned to the bottom of the window.
+			ImGui::SetCursorPos(ImVec2(
+				imageAreaStart.x,
+				imageAreaStart.y + std::max(available.y, 0.0f)));
+
+			ImGui::Separator();
+
+			if (m_psfRendering)
+			{
+				const float fraction =
+					std::clamp(m_psfProgress, 0.0f, 1.0f);
+
+				char label[48];
+				std::snprintf(
+					label,
+					sizeof(label),
+					"Rendering PSF... %d%%",
+					static_cast<int>(fraction * 100.0f));
+
+				ImGui::ProgressBar(
+					fraction,
+					ImVec2(-FLT_MIN, 0.0f),
+					label);
+			}
+			else if (m_psfWaitingForTrace)
+			{
+				// Indeterminate: the PSF starts once the trace completes.
+				ImGui::ProgressBar(
+					-1.0f * static_cast<float>(ImGui::GetTime()),
+					ImVec2(-FLT_MIN, 0.0f),
+					"Waiting for ray trace...");
+			}
+			else if (!m_psfError.empty())
+			{
+				ImGui::AlignTextToFramePadding();
+				ImGui::TextColored(
+					ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
+					"PSF render failed: %s",
+					m_psfError.c_str());
+			}
+			else
+			{
+				ImGui::AlignTextToFramePadding();
+				ImGui::TextDisabled(
+					hasImage ? "PSF up to date" : "Idle");
+			}
 		}
 
 		// Required even when Begin() returns false.
@@ -1532,6 +1859,7 @@ namespace opticforge::ui {
 	}
 	void UI::drawPrimitiveManipulationWindow(
 		telescope::TelescopeProject& project,
+		optics::MaterialLibrary& materialLibrary,
 		raytracer::TraceController& control,
 		const SceneCommands& sceneCommands)
 	{
@@ -1594,6 +1922,13 @@ namespace opticforge::ui {
 						{
 							return "Mirror";
 						}
+                        else if constexpr (
+                            std::is_same_v<
+                            T,
+                            telescope::DiffractionGrating>)
+                        {
+                            return "Diffraction Grating";
+                        }
 						else if constexpr (
 							std::is_same_v<
 							T,
@@ -1764,6 +2099,133 @@ namespace opticforge::ui {
 					glm::dvec3(0.0));
 
 				control.invalidate();
+			}
+
+			//
+			// ---------------------------------------------------------
+			// Lens material
+			// ---------------------------------------------------------
+			//
+
+			if (auto* lens =
+				std::get_if<telescope::Lens>(
+					primitive))
+			{
+				ImGui::Spacing();
+
+				ImGui::TextUnformatted(
+					"Optical Properties");
+
+				ImGui::Separator();
+
+				auto* frontInterface =
+					std::get_if<
+						optics::RefractiveInterface>(
+							&lens->
+								frontSurface.
+								opticalInterface().
+								type());
+
+				auto* rearInterface =
+					std::get_if<
+						optics::RefractiveInterface>(
+							&lens->
+								rearSurface.
+								opticalInterface().
+								type());
+
+				if (
+					frontInterface &&
+					rearInterface)
+				{
+					const bool sameMaterial =
+						frontInterface->
+							positiveSideMaterial ==
+						rearInterface->
+							negativeSideMaterial;
+
+					const std::string currentKey =
+						sameMaterial
+						? frontInterface->
+							positiveSideMaterial
+						: std::string{};
+
+					const optics::Material*
+						currentMaterial =
+							sameMaterial
+							? materialLibrary.find(
+								currentKey)
+							: nullptr;
+
+					const char* preview =
+						!sameMaterial
+							? "Mixed / custom"
+							: currentMaterial
+								? currentMaterial->
+									name.c_str()
+								: currentKey.c_str();
+
+					if (ImGui::BeginCombo(
+						"Material",
+						preview))
+					{
+						for (
+							const auto& material :
+								materialLibrary.materials())
+						{
+							if (!std::holds_alternative<
+								optics::IsotropicOptics>(
+									material.optics))
+							{
+								continue;
+							}
+
+							const bool selected =
+								sameMaterial &&
+								material.key ==
+									currentKey;
+
+							if (ImGui::Selectable(
+								material.name.c_str(),
+								selected))
+							{
+								// Preserve the media surrounding the
+								// lens while replacing only the glass.
+								frontInterface->
+									positiveSideMaterial =
+										material.key;
+
+								rearInterface->
+									negativeSideMaterial =
+										material.key;
+
+								control.invalidate();
+							}
+
+							if (selected)
+								ImGui::SetItemDefaultFocus();
+						}
+
+						ImGui::EndCombo();
+					}
+
+					if (sameMaterial)
+					{
+						ImGui::TextDisabled(
+							"%s",
+							currentKey.c_str());
+					}
+					else
+					{
+						ImGui::TextDisabled(
+							"Front/rear lens materials differ.");
+					}
+				}
+				else
+				{
+					ImGui::TextDisabled(
+						"Lens surfaces are not both refractive.");
+				}
 			}
 
 			//

@@ -7,6 +7,8 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <iomanip>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -338,6 +340,38 @@ namespace opticforge::project
                 "'.");
         }
 
+        std::string deserializeMaterialReference(
+            const json& value)
+        {
+            if (value.is_string())
+                return value.get<std::string>();
+
+            if (value.is_number())
+            {
+                const double index =
+                    value.get<double>();
+
+                if (
+                    !std::isfinite(index) ||
+                    index <= 0.0)
+                {
+                    fail(
+                        "legacy refractive index must be finite and positive.");
+                }
+
+                std::ostringstream stream;
+                stream
+                    << "legacy-index:"
+                    << std::setprecision(17)
+                    << index;
+
+                return stream.str();
+            }
+
+            fail(
+                "refractive material reference must be a material key or legacy numeric index.");
+        }
+
         json serializeOpticalInterface(
             const optics::OpticalInterface& opticalInterface)
         {
@@ -381,6 +415,27 @@ namespace opticforge::project
                     else if constexpr (
                         std::is_same_v<
                         Interface,
+                        optics::DiffractionGratingInterface>)
+                    {
+                        return {
+                            { "type", "diffraction-grating" },
+                            {
+                                "groovesPerMm",
+                                concreteInterface.groovesPerMm
+                            },
+                            {
+                                "order",
+                                concreteInterface.order
+                            },
+                            {
+                                "grooveAngleDegrees",
+                                concreteInterface.grooveAngleDegrees
+                            }
+                        };
+                    }
+                    else if constexpr (
+                        std::is_same_v<
+                        Interface,
                         optics::DetectorInterface>)
                     {
                         return {
@@ -416,10 +471,12 @@ namespace opticforge::project
             {
                 return optics::OpticalInterface{
                     optics::RefractiveInterface{
-                        value.at(
-                            "negativeSideMaterial").get<double>(),
-                        value.at(
-                            "positiveSideMaterial").get<double>()
+                        deserializeMaterialReference(
+                            value.at(
+                                "negativeSideMaterial")),
+                        deserializeMaterialReference(
+                            value.at(
+                                "positiveSideMaterial"))
                     }
                 };
             }
@@ -430,6 +487,20 @@ namespace opticforge::project
                     optics::ReflectiveInterface{
                         value.at(
                             "reflectivity").get<double>()
+                    }
+                };
+            }
+
+            if (type == "diffraction-grating")
+            {
+                return optics::OpticalInterface{
+                    optics::DiffractionGratingInterface{
+                        value.at(
+                            "groovesPerMm").get<double>(),
+                        value.at(
+                            "order").get<int>(),
+                        value.at(
+                            "grooveAngleDegrees").get<double>()
                     }
                 };
             }
@@ -565,6 +636,25 @@ namespace opticforge::project
                         else if constexpr (
                             std::is_same_v<
                             Primitive,
+                            telescope::DiffractionGrating>)
+                        {
+                            return {
+                                { "type", "diffraction-grating" },
+                                {
+                                    "transform",
+                                    serializeTransform(
+                                        primitive.transform)
+                                },
+                                {
+                                    "surface",
+                                    serializeOpticalSurface(
+                                        primitive.surface)
+                                }
+                            };
+                        }
+                        else if constexpr (
+                            std::is_same_v<
+                            Primitive,
                             telescope::Detector>)
                         {
                             return {
@@ -681,6 +771,25 @@ namespace opticforge::project
                 return {
                     id,
                     std::move(mirror),
+                    name
+                };
+            }
+
+            if (type == "diffraction-grating")
+            {
+                telescope::DiffractionGrating grating;
+
+                grating.transform =
+                    deserializeTransform(
+                        value.at("transform"));
+
+                grating.surface =
+                    deserializeOpticalSurface(
+                        value.at("surface"));
+
+                return {
+                    id,
+                    std::move(grating),
                     name
                 };
             }
@@ -928,7 +1037,10 @@ namespace opticforge::project
             document.at(
                 "version").get<int>();
 
-        if (version != FormatVersion)
+        if (
+            version != 1 &&
+            version != 2 &&
+            version != FormatVersion)
         {
             fail(
                 "unsupported project format version " +

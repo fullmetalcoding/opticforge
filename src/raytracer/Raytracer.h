@@ -7,6 +7,7 @@
 #include "RayInteraction.h"
 #include "RayIntersection.h"
 #include "RayPath.h"
+#include "optics/MaterialLibrary.h"
 
 #include <optional>
 #include <vector> 
@@ -22,6 +23,13 @@ namespace opticforge::raytracer {
 
 		};
 	public:
+        RayTracer() = default;
+
+        explicit RayTracer(
+            const optics::MaterialLibrary& materials)
+            : m_materialLibrary(&materials)
+        {
+        }
 
 		TraceResult traceRayBundle(const std::vector<optics::OpticalRay>& rayBundle,
 			const std::vector<telescope::PrimitiveRecord>& scene,
@@ -55,6 +63,13 @@ namespace opticforge::raytracer {
 			const optics::SurfaceHit& hit,
 			const optics::RefractiveInterface& interface) const;
 
+        OpticalResponse handleDiffractionGrating(
+            const optics::OpticalRay& incoming,
+            const RayIntersection& intersection,
+            const optics::DiffractionGratingInterface& interface) const;
+
+        const optics::MaterialLibrary*
+            m_materialLibrary = nullptr;
 
 	};
 }

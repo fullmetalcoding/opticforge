@@ -23,7 +23,7 @@ namespace opticforge::ui
                 // typed numbers. Arrow buttons still work normally.
                 constexpr auto commit = ImGuiInputTextFlags_EnterReturnsTrue;
                 int count = static_cast<int>(std::min<std::size_t>(settings.rayCount, 1000000));
-                if (ImGui::InputInt("Number of rays", &count, 100, 1000))
+                if (ImGui::InputInt("Pupil samples", &count, 100, 1000))
                 {
                     settings.rayCount = static_cast<std::size_t>(std::clamp(count, 1, 1000000));
                     traceChanged = true;
@@ -52,12 +52,162 @@ namespace opticforge::ui
                         std::clamp(interactions, 1, 10000));
                     traceChanged = true;
                 }
-                double wavelength = settings.wavelengthNm;
-                if (ImGui::InputDouble("Wavelength (nm)", &wavelength, 1, 10, "%.3f")
-                    && std::isfinite(wavelength) && wavelength > 0.0)
+                int spectrumMode =
+                    settings.spectrumMode ==
+                        raytracer::SpectrumMode::Reference
+                    ? 1
+                    : 0;
+
+                const char* spectrumModes[] =
                 {
-                    settings.wavelengthNm = wavelength;
+                    "Monochromatic",
+                    "Reference spectrum"
+                };
+
+                if (ImGui::Combo(
+                    "Spectrum mode",
+                    &spectrumMode,
+                    spectrumModes,
+                    IM_ARRAYSIZE(spectrumModes)))
+                {
+                    settings.spectrumMode =
+                        spectrumMode == 1
+                        ? raytracer::SpectrumMode::Reference
+                        : raytracer::SpectrumMode::Monochromatic;
+
                     traceChanged = true;
+                }
+
+                if (
+                    settings.spectrumMode ==
+                    raytracer::SpectrumMode::Monochromatic)
+                {
+                    double wavelength =
+                        settings.wavelengthNm;
+
+                    if (
+                        ImGui::InputDouble(
+                            "Wavelength (nm)",
+                            &wavelength,
+                            1,
+                            10,
+                            "%.3f") &&
+                        std::isfinite(wavelength) &&
+                        wavelength > 0.0)
+                    {
+                        settings.wavelengthNm =
+                            wavelength;
+
+                        traceChanged = true;
+                    }
+                }
+                else
+                {
+                    int spectrum =
+                        static_cast<int>(
+                            settings.referenceSpectrum);
+
+                    const char* spectra[] =
+                    {
+                        "CIE D65",
+                        "O5 star",
+                        "B0 star",
+                        "A0 star",
+                        "F0 star",
+                        "G0 star",
+                        "K0 star",
+                        "M0 star"
+                    };
+
+                    if (ImGui::Combo(
+                        "Reference spectrum",
+                        &spectrum,
+                        spectra,
+                        IM_ARRAYSIZE(spectra)))
+                    {
+                        settings.referenceSpectrum =
+                            static_cast<
+                                raytracer::ReferenceSpectrum>(
+                                    spectrum);
+
+                        traceChanged = true;
+                    }
+
+                    const double temperature =
+                        raytracer::referenceSpectrumTemperatureK(
+                            settings.referenceSpectrum);
+
+                    if (temperature > 0.0)
+                    {
+                        ImGui::TextDisabled(
+                            "Stellar continuum approximation: %.0f K blackbody",
+                            temperature);
+                    }
+                    else
+                    {
+                        ImGui::TextDisabled(
+                            "D65 sampled from the standard visible spectral distribution.");
+                    }
+
+                    constexpr int sampleCounts[] =
+                    {
+                        3,
+                        7,
+                        15,
+                        31
+                    };
+
+                    int sampleCountIndex = 1;
+
+                    for (
+                        int i = 0;
+                        i < IM_ARRAYSIZE(sampleCounts);
+                        ++i)
+                    {
+                        if (
+                            settings.spectralSampleCount ==
+                            static_cast<std::size_t>(
+                                sampleCounts[i]))
+                        {
+                            sampleCountIndex = i;
+                            break;
+                        }
+                    }
+
+                    const char* sampleCountLabels[] =
+                    {
+                        "3",
+                        "7",
+                        "15",
+                        "31"
+                    };
+
+                    if (ImGui::Combo(
+                        "Spectral bands",
+                        &sampleCountIndex,
+                        sampleCountLabels,
+                        IM_ARRAYSIZE(sampleCountLabels)))
+                    {
+                        settings.spectralSampleCount =
+                            static_cast<std::size_t>(
+                                sampleCounts[
+                                    sampleCountIndex]);
+
+                        traceChanged = true;
+                    }
+
+                    const std::size_t totalRays =
+                        settings.rayCount *
+                        settings.spectralSampleCount;
+
+                    ImGui::TextDisabled(
+                        "%zu pupil samples x %zu spectral bands = %zu traced rays.",
+                        settings.rayCount,
+                        settings.spectralSampleCount,
+                        totalRays);
+
+                    ImGui::TextDisabled(
+                        "Each band reuses the same Monte Carlo pupil points.");
                 }
 
                 auto pupil = project.getLaunchPupil();

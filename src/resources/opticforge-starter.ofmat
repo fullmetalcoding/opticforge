@@ -1,0 +1,212 @@
+{
+  "format": "OpticForgeMaterialLibrary",
+  "version": 1,
+  "library": {
+    "id": "opticforge-starter",
+    "name": "OpticForge Starter Materials",
+    "revision": "1",
+    "description": "Small built-in starter catalog for common refractor design work.",
+    "generatedBy": "OpticForge"
+  },
+  "materials": [
+    {
+      "key": "opticforge:vacuum",
+      "name": "Vacuum",
+      "description": "Ideal non-dispersive vacuum reference medium.",
+      "category": "gas",
+      "optics": {
+        "type": "isotropic",
+        "refractiveIndex": {
+          "type": "constant",
+          "refractiveIndex": 1
+        }
+      },
+      "tags": [
+        "reference-medium",
+        "built-in"
+      ]
+    },
+    {
+      "key": "opticforge:air",
+      "name": "Standard Optical Air",
+      "description": "Optical-design reference air. Uses n = 1 so catalog glass dispersion values can be used in their conventional relative-to-air form.",
+      "category": "gas",
+      "optics": {
+        "type": "isotropic",
+        "refractiveIndex": {
+          "type": "constant",
+          "refractiveIndex": 1
+        }
+      },
+      "tags": [
+        "reference-medium",
+        "built-in",
+        "air"
+      ]
+    },
+    {
+      "key": "schott:N-BK7",
+      "name": "N-BK7",
+      "aliases": [
+        "BK7"
+      ],
+      "category": "optical-glass",
+      "catalog": {
+        "manufacturer": "SCHOTT",
+        "catalog": "Optical Glass",
+        "catalogCode": "N-BK7",
+        "status": "current"
+      },
+      "optics": {
+        "type": "isotropic",
+        "refractiveIndex": {
+          "type": "sellmeier",
+          "B": [
+            1.03961212,
+            0.231792344,
+            1.01046945
+          ],
+          "C": [
+            0.00600069867,
+            0.0200179144,
+            103.560653
+          ],
+          "coefficientWavelengthUnit": "um",
+          "validWavelengthNm": {
+            "min": 365,
+            "max": 2325
+          }
+        }
+      },
+      "provenance": {
+        "source": "SCHOTT Optical Glass data sheet",
+        "sourceUrl": "https://www.schott.com/en-us/products/optical-glass-p1000267"
+      },
+      "tags": [
+        "crown",
+        "starter"
+      ]
+    },
+    {
+      "key": "schott:N-F2",
+      "name": "N-F2",
+      "category": "optical-glass",
+      "catalog": {
+        "manufacturer": "SCHOTT",
+        "catalog": "Optical Glass",
+        "catalogCode": "N-F2",
+        "status": "current"
+      },
+      "optics": {
+        "type": "isotropic",
+        "refractiveIndex": {
+          "type": "sellmeier",
+          "B": [
+            1.39757037,
+            0.159201403,
+            1.2686543
+          ],
+          "C": [
+            0.009959061,
+            0.0546931752,
+            119.248346
+          ],
+          "coefficientWavelengthUnit": "um",
+          "validWavelengthNm": {
+            "min": 365,
+            "max": 2325
+          }
+        }
+      },
+      "provenance": {
+        "source": "SCHOTT Optical Glass data sheet",
+        "sourceUrl": "https://www.schott.com/en-us/products/optical-glass-p1000267"
+      },
+      "tags": [
+        "flint",
+        "starter"
+      ]
+    },
+    {
+      "key": "ohara:S-FPL53",
+      "name": "S-FPL53",
+      "category": "optical-glass",
+      "catalog": {
+        "manufacturer": "OHARA",
+        "catalog": "Optical Glass",
+        "catalogCode": "S-FPL53",
+        "status": "current"
+      },
+      "optics": {
+        "type": "isotropic",
+        "refractiveIndex": {
+          "type": "sellmeier",
+          "B": [
+            0.983532327,
+            0.069568814,
+            1.11409238
+          ],
+          "C": [
+            0.00492234955,
+            0.0193581091,
+            264.275294
+          ],
+          "coefficientWavelengthUnit": "um",
+          "validWavelengthNm": {
+            "min": 365,
+            "max": 2325
+          }
+        }
+      },
+      "provenance": {
+        "source": "OHARA S-FPL53 optical glass data sheet",
+        "sourceUrl": "https://oharacorp.com/optical-glass/"
+      },
+      "tags": [
+        "super-ed",
+        "low-dispersion",
+        "starter"
+      ]
+    },
+    {
+      "key": "schott:N-LAK22",
+      "name": "N-LAK22",
+      "category": "optical-glass",
+      "catalog": {
+        "manufacturer": "SCHOTT",
+        "catalog": "Optical Glass",
+        "catalogCode": "N-LAK22",
+        "status": "current"
+      },
+      "optics": {
+        "type": "isotropic",
+        "refractiveIndex": {
+          "type": "sellmeier",
+          "B": [
+            1.14229781,
+            0.535138441,
+            1.04088385
+          ],
+          "C": [
+            0.005857786,
+            0.0198546147,
+            100.834017
+          ],
+          "coefficientWavelengthUnit": "um",
+          "validWavelengthNm": {
+            "min": 365,
+            "max": 2325
+          }
+        }
+      },
+      "provenance": {
+        "source": "SCHOTT Optical Glass data sheet",
+        "sourceUrl": "https://www.schott.com/en-us/products/optical-glass-p1000267"
+      },
+      "tags": [
+        "lanthanum-crown",
+        "starter"
+      ]
+    }
+  ]
+}
