@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
-#include <random>
 #include <stdexcept>
 
 #include <glm/glm.hpp>
@@ -18,6 +17,11 @@ namespace opticforge::raytracer
     {
         constexpr double TwoPi =
             6.28318530717958647692;
+
+        // 2*pi / phi^2. Successive samples separated by this angle
+        // form the Vogel sunflower spiral without radial spokes.
+        constexpr double GoldenAngle =
+            2.39996322972865332223;
     }
 
     RayBundle generatePupilRayBundle(
@@ -109,30 +113,34 @@ namespace opticforge::raytracer
                     std::tan(offAxisAngleYRadians),
                     1.0));
 
-        std::mt19937_64 rng(
-            randomSeed);
-
-        std::uniform_real_distribution<double>
-            unitDistribution(0.0, 1.0);
+        // Preserve randomSeed as a deterministic orientation control rather
+        // than using it to randomize the pupil. The sample locations
+        // themselves are a Vogel sunflower distribution.
+        const double phase =
+            std::fmod(
+                static_cast<double>(randomSeed) * GoldenAngle,
+                TwoPi);
 
         for (
             std::size_t i = 0;
             i < numberOfRays;
             ++i)
         {
+            // Midpoint radial quantiles give equal-area samples and avoid
+            // placing either the first point exactly at the center or the
+            // last point exactly on the pupil rim.
             const double u =
-                unitDistribution(rng);
-
-            const double v =
-                unitDistribution(rng);
+                (static_cast<double>(i) + 0.5) /
+                static_cast<double>(numberOfRays);
 
             const double radius =
                 pupilRadius *
                 std::sqrt(u);
 
             const double theta =
-                TwoPi *
-                v;
+                phase +
+                static_cast<double>(i) *
+                GoldenAngle;
 
             const double x =
                 radius *
