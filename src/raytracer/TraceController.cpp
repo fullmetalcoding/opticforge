@@ -14,7 +14,6 @@
 #include <exception>
 #include <limits>
 #include <mutex>
-#include <random>
 #include <stdexcept>
 #include <thread>
 #include <type_traits>
@@ -29,6 +28,11 @@ namespace opticforge::raytracer
 	{
 		constexpr double TwoPi =
 			6.28318530717958647692;
+
+		// 2*pi / phi^2. Successive samples separated by this angle
+		// form the Vogel sunflower spiral without radial spokes.
+		constexpr double GoldenAngle =
+			2.39996322972865332223;
 
 
 		// Workers claim this many rays at a time.
@@ -801,20 +805,18 @@ namespace opticforge::raytracer
 			// Generate the launch bundle
 			// ------------------------------------------------------------
 			//
-			// Keep bundle generation single-threaded.
-			//
-			// This preserves deterministic correspondence between
-			// randomSeed and the generated ray sequence regardless of the
-			// requested worker count.
+			// Keep bundle generation single-threaded. Launch points use a
+			// deterministic Vogel sunflower sequence. randomSeed controls
+			// only the global azimuthal orientation of the sequence, so the
+			// pupil remains uniformly sampled for every seed and worker count.
 			//
 
-			std::mt19937_64 rng(
-				settings.randomSeed);
-
-			std::uniform_real_distribution<double>
-				uniform(
-					0.0,
-					1.0);
+			const double vogelPhase =
+				std::fmod(
+					static_cast<double>(
+						settings.randomSeed) *
+					GoldenAngle,
+					TwoPi);
 
 
             std::vector<SpectralSample> spectralSamples;
@@ -858,12 +860,24 @@ namespace opticforge::raytracer
 				}
 
 
-				// Separate RNG calls preserve the exact sampling order.
+				// Midpoint area quantiles avoid both an exact center sample
+				// and an exact rim sample. For circular/annular/elliptical
+				// pupils this is the Vogel sunflower construction. The same
+				// low-discrepancy parameters also deterministically cover
+				// rectangular pupils.
 				const double u =
-					uniform(rng);
+					(static_cast<double>(i) + 0.5) /
+					static_cast<double>(
+						settings.rayCount);
+
+				const double theta =
+					vogelPhase +
+					static_cast<double>(i) *
+					GoldenAngle;
 
 				const double v =
-					uniform(rng);
+					std::fmod(theta, TwoPi) /
+					TwoPi;
 
 				const glm::dvec2 sample =
 					sampleAperture(
