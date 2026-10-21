@@ -806,18 +806,7 @@ namespace opticforge::raytracer
 			// ------------------------------------------------------------
 			//
 			// Keep bundle generation single-threaded. Launch points use a
-			// deterministic Vogel sunflower sequence. randomSeed controls
-			// only the global azimuthal orientation of the sequence, so the
-			// pupil remains uniformly sampled for every seed and worker count.
-			//
-
-			const double vogelPhase =
-				std::fmod(
-					static_cast<double>(
-						settings.randomSeed) *
-					GoldenAngle,
-					TwoPi);
-
+			// deterministic Vogel sunflower sequence.
 
             std::vector<SpectralSample> spectralSamples;
 
@@ -871,7 +860,6 @@ namespace opticforge::raytracer
 						settings.rayCount);
 
 				const double theta =
-					vogelPhase +
 					static_cast<double>(i) *
 					GoldenAngle;
 
