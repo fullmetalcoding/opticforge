@@ -15,9 +15,6 @@ namespace opticforge::raytracer
 {
     namespace
     {
-        constexpr double TwoPi =
-            6.28318530717958647692;
-
         // 2*pi / phi^2. Successive samples separated by this angle
         // form the Vogel sunflower spiral without radial spokes.
         constexpr double GoldenAngle =
@@ -31,8 +28,7 @@ namespace opticforge::raytracer
         double pupilElevationY,
         double offAxisAngleXRadians,
         double offAxisAngleYRadians,
-        const RayBundleSpectrum& spectrum,
-        std::uint64_t randomSeed)
+        const RayBundleSpectrum& spectrum)
     {
         if (numberOfRays == 0)
             return {};
@@ -113,14 +109,6 @@ namespace opticforge::raytracer
                     std::tan(offAxisAngleYRadians),
                     1.0));
 
-        // Preserve randomSeed as a deterministic orientation control rather
-        // than using it to randomize the pupil. The sample locations
-        // themselves are a Vogel sunflower distribution.
-        const double phase =
-            std::fmod(
-                static_cast<double>(randomSeed) * GoldenAngle,
-                TwoPi);
-
         for (
             std::size_t i = 0;
             i < numberOfRays;
@@ -138,7 +126,6 @@ namespace opticforge::raytracer
                 std::sqrt(u);
 
             const double theta =
-                phase +
                 static_cast<double>(i) *
                 GoldenAngle;
 
