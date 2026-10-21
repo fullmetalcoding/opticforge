@@ -28,13 +28,6 @@ namespace opticforge::ui
                     settings.rayCount = static_cast<std::size_t>(std::clamp(count, 1, 1000000));
                     traceChanged = true;
                 }
-                auto seed = settings.randomSeed;
-                if (ImGui::InputScalar("Monte Carlo seed", ImGuiDataType_U32, &seed,
-                    nullptr, nullptr, "%u"))
-                {
-                    settings.randomSeed = seed;
-                    traceChanged = true;
-                }
                 int workers = static_cast<int>(settings.workerCount);
                 const auto hardware = std::max(1u, std::thread::hardware_concurrency());
                 if (ImGui::InputInt("Worker threads (0 = auto)", &workers, 1, 4))
