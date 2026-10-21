@@ -14,6 +14,8 @@ namespace opticforge::raytracer {
     {
         telescope::PrimitiveId primitiveId;
         optics::SurfaceHit hit;
+        // OPL at this surface, before the optical interaction (mm).
+        double opticalPathLength = 0.0;
         optics::OpticalRay incoming;
         std::optional<optics::OpticalRay> outgoing;
     };
