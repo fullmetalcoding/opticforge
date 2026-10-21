@@ -84,6 +84,24 @@ namespace opticforge::raytracer {
 				interaction.primitiveId = (*intersection).primitiveId;
 				interaction.incoming = currentRay;
 
+                // Ray directions are normalized; world-space distance is in mm.
+                // Use the actual hit position rather than relying on a local
+                // surface parameter when accumulating physical distance.
+                const double segmentLength = glm::length(
+                    intersection->hit.position - currentRay.ray.origin);
+                const double segmentOpl = segmentLength *
+                    currentRay.mediumRefractiveIndex;
+                if (!std::isfinite(segmentOpl) || segmentOpl < 0.0 ||
+                    !std::isfinite(path.opticalPathLength + segmentOpl) ||
+                    !std::isfinite(currentRay.mediumRefractiveIndex) ||
+                    currentRay.mediumRefractiveIndex <= 0.0)
+                {
+                    path.termination = RayTermination::InvalidState;
+                    break;
+                }
+                path.opticalPathLength += segmentOpl;
+                interaction.opticalPathLength = path.opticalPathLength;
+
 				interactions++;
 				OpticalResponse resp = handleInteraction(currentRay, (*intersection));
 
@@ -595,11 +613,17 @@ namespace opticforge::raytracer {
 		const glm::dvec3 normal =
 			towardPositive ? -surfaceNormal : surfaceNormal;
 
+        // A caller may launch directly into a non-vacuum medium. At a
+        // refractive boundary, the incident index must match that medium.
+        // The interface material definitions determine the transmitted index.
+
 		if (nIncident == nTransmitted)
 		{
+            auto outgoing = makeOutgoingRay(
+                incoming, hit, direction, incoming.intensity);
+            outgoing.mediumRefractiveIndex = nTransmitted;
 			return {
-				makeOutgoingRay(
-					incoming, hit, direction, incoming.intensity),
+				outgoing,
 				RayTermination::Active
 			};
 		}
@@ -634,11 +658,10 @@ namespace opticforge::raytracer {
 			eta * direction
 			+ (eta * cosIncident - cosTransmitted) * normal;
 
-		return {
-			makeOutgoingRay(
-				incoming, hit, transmitted, incoming.intensity),
-			RayTermination::Active
-		};
+        auto outgoing = makeOutgoingRay(
+            incoming, hit, transmitted, incoming.intensity);
+        outgoing.mediumRefractiveIndex = nTransmitted;
+        return { outgoing, RayTermination::Active };
 	}
 
     RayTracer::OpticalResponse
