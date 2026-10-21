@@ -24,7 +24,6 @@ namespace opticforge::raytracer
     struct TraceSettings
     {
         std::size_t rayCount = 10000;
-        std::uint32_t randomSeed = 1;
         std::uint32_t maxInteractions = 1000;
 
         SpectrumMode spectrumMode =
