@@ -36,6 +36,13 @@ namespace opticforge::optics
         double wavelength = 550.0;
         double intensity = 1.0;
 
+        // Refractive index of the medium occupied by the current segment.
+        // Launch rays start in vacuum/air (n = 1) unless specified otherwise.
+        double mediumRefractiveIndex = 1.0;
+
+        // Local coordinates on the original launch pupil, in millimetres.
+        std::optional<glm::dvec2> launchPupilCoordinate;
+
         // Optional colorimetric metadata for a finite spectral band.
         // When present, this is the band's CIE XYZ response per unit radiant
         // power. It remains unchanged as optical interactions attenuate the
