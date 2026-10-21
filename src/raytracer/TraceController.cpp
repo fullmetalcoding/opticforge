@@ -903,6 +903,8 @@ namespace opticforge::raytracer
                     ray.wavelength =
                         spectralSample.wavelengthNm;
 
+                    ray.launchPupilCoordinate = sample;
+
                     ray.intensity =
                         spectralSample.weight;
 
