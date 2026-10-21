@@ -100,6 +100,27 @@ int main()
     check(tracer.traceRayBundle({}, {bundleMirror}, bundlePlane).paths.empty(),
           "empty bundle yields empty paths");
 
+    // Optical path length is accumulated in millimetres, including the
+    // final segment to the observation plane.
+    telescope::ObservationPlane oplPlane;
+    oplPlane.transform.setPosition({0.0, 0.0, 100.0});
+    optics::OpticalRay oplRay;
+    oplRay.ray = optics::Ray({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0});
+    oplRay.launchPupilCoordinate = glm::dvec2(3.0, 4.0);
+    const auto vacuumPath = tracer.traceRay(oplRay, {}, oplPlane);
+    check(vacuumPath.termination == raytracer::RayTermination::DetectorHit,
+          "vacuum OPL ray reaches observation plane");
+    check(std::abs(vacuumPath.opticalPathLength - 100.0) < 1.0e-9,
+          "vacuum OPL equals geometric distance");
+    check(vacuumPath.initialRay.launchPupilCoordinate.has_value() &&
+          vacuumPath.initialRay.launchPupilCoordinate->x == 3.0 &&
+          vacuumPath.initialRay.launchPupilCoordinate->y == 4.0,
+          "launch pupil coordinate survives tracing");
+    oplRay.mediumRefractiveIndex = 1.5;
+    const auto mediumPath = tracer.traceRay(oplRay, {}, oplPlane);
+    check(std::abs(mediumPath.opticalPathLength - 150.0) < 1.0e-9,
+          "homogeneous medium OPL is index times distance");
+
     expectSide(mirror(optics::PlaneGeometry{}), {0, 0, 1}, false);
     expectSide(mirror(optics::PlaneGeometry{}), {0, 0, 1}, true);
     expectSide(mirror(optics::PlaneGeometry{}, true), {0, 0, -1}, false);
