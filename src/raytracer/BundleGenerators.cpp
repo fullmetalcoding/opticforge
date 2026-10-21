@@ -158,6 +158,8 @@ namespace opticforge::raytracer
                 opticalRay.wavelength =
                     spectralSample.wavelengthNm;
 
+                opticalRay.launchPupilCoordinate = glm::dvec2(x, y);
+
                 opticalRay.intensity =
                     spectralSample.weight;
 
