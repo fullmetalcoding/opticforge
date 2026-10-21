@@ -35,6 +35,5 @@ namespace opticforge::raytracer
         double pupilElevationY,
         double offAxisAngleXRadians,
         double offAxisAngleYRadians,
-        const RayBundleSpectrum& spectrum = {},
-        std::uint64_t randomSeed = 1);
+        const RayBundleSpectrum& spectrum = {});
 }
