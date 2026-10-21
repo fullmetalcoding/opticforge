@@ -25,6 +25,9 @@ namespace opticforge::raytracer {
 
         std::vector<RayInteraction> interactions;
 
+        // Cumulative optical path length to the final intersection (mm).
+        double opticalPathLength = 0.0;
+
         RayTermination termination =
             RayTermination::Active;
     };
