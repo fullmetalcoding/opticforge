@@ -862,7 +862,8 @@ namespace opticforge {
         telescope::Mirror visual;
         visual.transform = obstruction.transform;
         visual.surface = obstruction.surface;
-        visual.thickness = 0.5;
+        visual.thickness = obstruction.thicknessMm > 0.0
+            ? obstruction.thicknessMm : 0.5;
         drawPrimitive(id, visual, camera);
     }
 
@@ -874,7 +875,8 @@ namespace opticforge {
         telescope::Mirror visual;
         visual.transform = obstruction.transform;
         visual.surface = obstruction.surface;
-        visual.thickness = 0.5;
+        visual.thickness = obstruction.thicknessMm > 0.0
+            ? obstruction.thicknessMm : 0.5;
         drawPrimitiveForPicking(id, visual, camera);
     }
 
