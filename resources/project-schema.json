@@ -489,6 +489,18 @@
         }
       }
     },
+    "obstruction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "transform", "surface"],
+      "properties": {
+        "id": {"type": "integer", "minimum": 1},
+        "name": {"type": "string", "minLength": 1},
+        "type": {"const": "obstruction"},
+        "transform": {"$ref": "#/definitions/transform"},
+        "surface": {"$ref": "#/definitions/opticalSurface"}
+      }
+    },
     "primitive": {
       "oneOf": [
         {
@@ -502,6 +514,9 @@
         },
         {
           "$ref": "#/definitions/detector"
+        },
+        {
+          "$ref": "#/definitions/obstruction"
         }
       ]
     },
