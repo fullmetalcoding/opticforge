@@ -34,6 +34,8 @@ namespace opticforge::telescope
     {
         optics::Transform transform;
         optics::OpticalSurface surface;
+        // Zero means a two-sided thin mask; positive means a solid rectangular vane.
+        double thicknessMm = 0.0;
 
         Obstruction()
         {
