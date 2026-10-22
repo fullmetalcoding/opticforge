@@ -280,10 +280,14 @@ namespace opticforge::ui {
                                &d.heightMm);
         }
 
+        if (d.shape == 2)
+            ImGui::InputDouble("Vane thickness (mm; 0 = thin mask)", &d.thicknessMm);
+
         ImGui::InputScalarN("Position (mm)", ImGuiDataType_Double, &d.positionMm.x, 3);
         ImGui::InputScalarN("Rotation (degrees)", ImGuiDataType_Double, &d.orientationDegrees.x, 3);
 
         const bool valid = !d.name.empty() &&
+            std::isfinite(d.thicknessMm) && d.thicknessMm >= 0.0 &&
             std::isfinite(d.positionMm.x) && std::isfinite(d.positionMm.y) &&
             std::isfinite(d.positionMm.z) &&
             std::isfinite(d.orientationDegrees.x) &&
@@ -305,6 +309,7 @@ namespace opticforge::ui {
         {
             telescope::Obstruction mask;
             mask.transform.setPosition(d.positionMm);
+            mask.thicknessMm = d.shape == 2 ? d.thicknessMm : 0.0;
             mask.transform.setEulerDegrees(d.orientationDegrees);
             if (d.shape == 0)
                 mask.surface.setAperture(optics::Aperture{
@@ -2230,6 +2235,16 @@ namespace opticforge::ui {
                     {
                         mask->surface.setAperture(optics::Aperture{
                             optics::RectangularAperture{width, height}});
+                        control.invalidate();
+                    }
+                }
+                if (std::holds_alternative<optics::RectangularAperture>(aperture))
+                {
+                    double thickness = mask->thicknessMm;
+                    if (ImGui::InputDouble("Vane thickness (mm; 0 = thin mask)", &thickness) &&
+                        std::isfinite(thickness) && thickness >= 0.0)
+                    {
+                        mask->thicknessMm = thickness;
                         control.invalidate();
                     }
                 }
