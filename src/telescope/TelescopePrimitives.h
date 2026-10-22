@@ -30,6 +30,18 @@ namespace opticforge::telescope
         optics::OpticalSurface surface;
     };
 
+    struct Obstruction
+    {
+        optics::Transform transform;
+        optics::OpticalSurface surface;
+
+        Obstruction()
+        {
+            surface.setGeometry(optics::PlaneGeometry{});
+            surface.opticalInterface().setAbsorbing();
+        }
+    };
+
     struct Detector
     {
         optics::Transform transform;
@@ -75,7 +87,8 @@ namespace opticforge::telescope
         Lens,
         Mirror,
         DiffractionGrating,
-        Detector>;
+        Detector,
+        Obstruction>;
 
     using PrimitiveId = std::uint64_t;
 
