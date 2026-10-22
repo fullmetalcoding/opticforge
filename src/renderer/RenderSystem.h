@@ -39,6 +39,10 @@ namespace opticforge
 			telescope::PrimitiveId id,
 			const telescope::Lens& lens);
 
+        RenderObject& getOrCreateObstructionRenderObject(
+            telescope::PrimitiveId id,
+            const telescope::Obstruction& obstruction);
+
         RenderObject& getOrCreateGratingRenderObject(
             telescope::PrimitiveId id,
             const telescope::DiffractionGrating& grating);
