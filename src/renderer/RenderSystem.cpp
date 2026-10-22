@@ -73,6 +73,74 @@ namespace opticforge {
 		return it->second;
 	}
 
+    RenderObject& RenderSystem::getOrCreateObstructionRenderObject(
+        telescope::PrimitiveId id,
+        const telescope::Obstruction& obstruction)
+    {
+        // The mesh depends on aperture shape/dimensions and thickness,
+        // but not the primitive's world transform.
+        std::uint64_t signature = 1469598103934665603ULL;
+        auto combine = [&](std::uint64_t value)
+        {
+            signature ^= value;
+            signature *= 1099511628211ULL;
+        };
+        auto combineDouble = [&](double value)
+        {
+            combine(static_cast<std::uint64_t>(std::hash<double>{}(value)));
+        };
+        std::visit([&](const auto& aperture)
+        {
+            using Shape = std::decay_t<decltype(aperture)>;
+            if constexpr (std::is_same_v<Shape, optics::CircularAperture>)
+            {
+                combine(1);
+                combineDouble(aperture.radius);
+            }
+            else if constexpr (std::is_same_v<Shape, optics::AnnularAperture>)
+            {
+                combine(2);
+                combineDouble(aperture.innerRadius);
+                combineDouble(aperture.outerRadius);
+            }
+            else if constexpr (std::is_same_v<Shape, optics::RectangularAperture>)
+            {
+                combine(3);
+                combineDouble(aperture.width);
+                combineDouble(aperture.height);
+            }
+            else if constexpr (std::is_same_v<Shape, optics::EllipticalAperture>)
+            {
+                combine(4);
+                combineDouble(aperture.radiusX);
+                combineDouble(aperture.radiusY);
+            }
+        }, obstruction.surface.aperture().geometry());
+        combineDouble(obstruction.thicknessMm);
+
+        auto it = m_renderObjects.find(id);
+        if (it == m_renderObjects.end() || it->second.geometryRevision != signature)
+        {
+            const double visualThickness =
+                obstruction.thicknessMm > 0.0 ? obstruction.thicknessMm : 0.5;
+            MeshData mesh = MirrorMeshGenerator::generate(
+                obstruction.surface, visualThickness);
+            if (it == m_renderObjects.end())
+            {
+                RenderObject object;
+                object.mesh = createMesh(mesh);
+                object.geometryRevision = signature;
+                it = m_renderObjects.emplace(id, std::move(object)).first;
+            }
+            else
+            {
+                it->second.mesh = createMesh(mesh);
+                it->second.geometryRevision = signature;
+            }
+        }
+        return it->second;
+    }
+
     RenderObject& RenderSystem::getOrCreateGratingRenderObject(
         telescope::PrimitiveId id,
         const telescope::DiffractionGrating& grating)
