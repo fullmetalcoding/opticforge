@@ -419,14 +419,82 @@ namespace opticforge::raytracer {
                             glm::dvec3(0.0),
                             true);
                     }
-					else if constexpr (
-						std::is_same_v<Primitive, telescope::Detector> ||
-                        std::is_same_v<Primitive, telescope::Obstruction>)
-					{
-						testSurface(
-							primitive.surface,
-							glm::dvec3(0.0));
-					}
+                    else if constexpr (std::is_same_v<Primitive, telescope::Obstruction>)
+                    {
+                        const auto* rectangle = std::get_if<optics::RectangularAperture>(
+                            &primitive.surface.aperture().geometry());
+                        if (primitive.thicknessMm <= 0.0 || !rectangle)
+                        {
+                            testSurface(primitive.surface, glm::dvec3(0.0));
+                        }
+                        else
+                        {
+                            // Intersect an actual solid box, in the surface's local
+                            // frame, rather than projecting its outline onto a pupil.
+                            const optics::Transform& frame = primitive.surface.transform();
+                            const glm::dvec3 origin =
+                                frame.worldToLocalPoint(primitiveRay.origin);
+                            const glm::dvec3 direction =
+                                frame.worldToLocalDirection(primitiveRay.direction);
+                            const glm::dvec3 halfSize(
+                                rectangle->width * 0.5,
+                                rectangle->height * 0.5,
+                                primitive.thicknessMm * 0.5);
+                            double entry = -std::numeric_limits<double>::infinity();
+                            double exit = std::numeric_limits<double>::infinity();
+                            glm::dvec3 entryNormal(0.0);
+                            glm::dvec3 exitNormal(0.0);
+                            bool intersects = true;
+                            for (int axis = 0; axis < 3; ++axis)
+                            {
+                                if (std::abs(direction[axis]) < 1.0e-14)
+                                {
+                                    if (origin[axis] < -halfSize[axis] ||
+                                        origin[axis] > halfSize[axis])
+                                    {
+                                        intersects = false;
+                                        break;
+                                    }
+                                    continue;
+                                }
+                                double t0 = (-halfSize[axis] - origin[axis]) / direction[axis];
+                                double t1 = (halfSize[axis] - origin[axis]) / direction[axis];
+                                glm::dvec3 n0(0.0), n1(0.0);
+                                n0[axis] = -1.0;
+                                n1[axis] = 1.0;
+                                if (t0 > t1)
+                                {
+                                    std::swap(t0, t1);
+                                    std::swap(n0, n1);
+                                }
+                                if (t0 > entry) { entry = t0; entryNormal = n0; }
+                                if (t1 < exit) { exit = t1; exitNormal = n1; }
+                                if (entry > exit) { intersects = false; break; }
+                            }
+                            if (intersects && exit > minHitDistance)
+                            {
+                                const bool inside = entry <= minHitDistance;
+                                const double hitT = inside ? exit : entry;
+                                if (std::isfinite(hitT) && hitT > minHitDistance &&
+                                    hitT < closestT)
+                                {
+                                    const glm::dvec3 localNormal =
+                                        inside ? exitNormal : entryNormal;
+                                    optics::SurfaceHit hit{};
+                                    hit.t = hitT;
+                                    hit.position = primitive.transform.localToWorldPoint(
+                                        frame.localToWorldPoint(origin + hitT * direction));
+                                    hit.normal = primitive.transform.localToWorldNormal(
+                                        frame.localToWorldNormal(localNormal));
+                                    acceptAbsorbingHit(hit);
+                                }
+                            }
+                        }
+                    }
+                    else if constexpr (std::is_same_v<Primitive, telescope::Detector>)
+                    {
+                        testSurface(primitive.surface, glm::dvec3(0.0));
+                    }
 					else
 					{
 						static_assert(
