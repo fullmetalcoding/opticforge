@@ -505,14 +505,6 @@ namespace opticforge::project
                 };
             }
 
-            if (type == "obstruction")
-            {
-                telescope::Obstruction obstruction;
-                obstruction.transform = deserializeTransform(value.at("transform"));
-                obstruction.surface = deserializeOpticalSurface(value.at("surface"));
-                obstruction.surface.opticalInterface().setAbsorbing();
-                return { id, std::move(obstruction), name };
-            }
             if (type == "detector")
             {
                 return optics::OpticalInterface{
@@ -811,6 +803,14 @@ namespace opticforge::project
                 };
             }
 
+            if (type == "obstruction")
+            {
+                telescope::Obstruction obstruction;
+                obstruction.transform = deserializeTransform(value.at("transform"));
+                obstruction.surface = deserializeOpticalSurface(value.at("surface"));
+                obstruction.surface.opticalInterface().setAbsorbing();
+                return { id, std::move(obstruction), name };
+            }
             if (type == "detector")
             {
                 telescope::Detector detector;
