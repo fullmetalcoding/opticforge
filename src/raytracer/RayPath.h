@@ -5,6 +5,8 @@
 #include "optics/Ray.h"
 #include "RayInteraction.h"
 #include <vector>
+#include <optional>
+#include <cmath>
 
 namespace opticforge::raytracer {
     enum class RayTermination
@@ -27,6 +29,10 @@ namespace opticforge::raytracer {
 
         // Cumulative optical path length to the final intersection (mm).
         double opticalPathLength = 0.0;
+
+        // OPD against an ideal spherical reference centered at the selected
+        // image point. Populated only when an explicit reference is supplied.
+        std::optional<double> opticalPathDifferenceMm;
 
         RayTermination termination =
             RayTermination::Active;
