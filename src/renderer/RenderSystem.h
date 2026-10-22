@@ -50,6 +50,7 @@ namespace opticforge
 		void drawPrimitive(telescope::PrimitiveId id, const telescope::Mirror & mirror, const Camera& camera);
         void drawPrimitive(telescope::PrimitiveId id, const telescope::DiffractionGrating& grating, const Camera& camera);
 		void drawPrimitive(telescope::PrimitiveId id, const telescope::Detector & detector, const Camera& camera);
+        void drawPrimitive(telescope::PrimitiveId id, const telescope::Obstruction& obstruction, const Camera& camera);
 
 		std::optional<telescope::PrimitiveId> pickPrimitive(
 			const telescope::TelescopeProject& project,
@@ -105,6 +106,7 @@ namespace opticforge
 			telescope::PrimitiveId id,
 			const telescope::Detector& detector,
 			const Camera& camera);
+        void drawPrimitiveForPicking(telescope::PrimitiveId id, const telescope::Obstruction& obstruction, const Camera& camera);
 
 		void setPickingPrimitiveId(
 			telescope::PrimitiveId id);
