@@ -498,6 +498,37 @@ int main()
     check(clearRay.termination != raytracer::RayTermination::Absorbed,
           "ray outside mask passes unobstructed");
 
+    // All aperture geometries must produce their own geometric shadow.
+    telescope::Obstruction disk;
+    disk.surface.setAperture(optics::Aperture{
+        optics::CircularAperture{5.0}});
+    check(trace({65, disk, "disk"}, {4, 0, -10}, {0, 0, 1}).termination ==
+              raytracer::RayTermination::Absorbed,
+          "circular obstruction blocks inside radius");
+    check(trace({65, disk, "disk"}, {6, 0, -10}, {0, 0, 1}).termination !=
+              raytracer::RayTermination::Absorbed,
+          "circular obstruction clears outside radius");
+
+    telescope::Obstruction ring;
+    ring.surface.setAperture(optics::Aperture{
+        optics::AnnularAperture{3.0, 7.0}});
+    check(trace({66, ring, "ring"}, {5, 0, -10}, {0, 0, 1}).termination ==
+              raytracer::RayTermination::Absorbed,
+          "annular obstruction blocks ring");
+    check(trace({66, ring, "ring"}, {1, 0, -10}, {0, 0, 1}).termination !=
+              raytracer::RayTermination::Absorbed,
+          "annular obstruction preserves center opening");
+
+    telescope::Obstruction ellipse;
+    ellipse.surface.setAperture(optics::Aperture{
+        optics::EllipticalAperture{8.0, 3.0}});
+    check(trace({67, ellipse, "ellipse"}, {7, 0, -10}, {0, 0, 1}).termination ==
+              raytracer::RayTermination::Absorbed,
+          "elliptical obstruction blocks within major axis");
+    check(trace({67, ellipse, "ellipse"}, {0, 4, -10}, {0, 0, 1}).termination !=
+              raytracer::RayTermination::Absorbed,
+          "elliptical obstruction clears outside minor axis");
+
     if (failures) std::cerr << failures << " assertion(s) failed\n";
     return failures ? 1 : 0;
 }
