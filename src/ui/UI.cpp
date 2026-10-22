@@ -253,7 +253,83 @@ namespace opticforge::ui {
 			materialLibrary,
 			materialCommands);
 	}
-	void UI::drawAddLensPopup(
+	void UI::drawAddObstructionPopup(
+        telescope::TelescopeProject& project,
+        raytracer::TraceController& control)
+    {
+        if (!ImGui::BeginPopupModal("AddObstruction", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize))
+            return;
+
+        auto& d = m_addObstructionDialog;
+        ImGui::InputText("Name", &d.name);
+        const char* shapes[] = {"Circular", "Annular", "Rectangular", "Elliptical"};
+        ImGui::Combo("Shape", &d.shape, shapes, 4);
+
+        if (d.shape == 0 || d.shape == 1)
+        {
+            ImGui::InputDouble("Outer radius (mm)", &d.outerRadiusMm);
+            if (d.shape == 1)
+                ImGui::InputDouble("Inner radius (mm)", &d.innerRadiusMm);
+        }
+        else
+        {
+            ImGui::InputDouble(d.shape == 2 ? "Width (mm)" : "X diameter (mm)",
+                               &d.widthMm);
+            ImGui::InputDouble(d.shape == 2 ? "Height (mm)" : "Y diameter (mm)",
+                               &d.heightMm);
+        }
+
+        ImGui::InputDouble3("Position (mm)", &d.positionMm.x);
+        ImGui::InputDouble3("Rotation (degrees)", &d.orientationDegrees.x);
+
+        const bool valid = !d.name.empty() &&
+            std::isfinite(d.positionMm.x) && std::isfinite(d.positionMm.y) &&
+            std::isfinite(d.positionMm.z) &&
+            std::isfinite(d.orientationDegrees.x) &&
+            std::isfinite(d.orientationDegrees.y) &&
+            std::isfinite(d.orientationDegrees.z) &&
+            (d.shape < 2
+                ? std::isfinite(d.outerRadiusMm) && d.outerRadiusMm > 0.0 &&
+                  (d.shape == 0 || (std::isfinite(d.innerRadiusMm) &&
+                    d.innerRadiusMm >= 0.0 &&
+                    d.innerRadiusMm < d.outerRadiusMm))
+                : std::isfinite(d.widthMm) && d.widthMm > 0.0 &&
+                  std::isfinite(d.heightMm) && d.heightMm > 0.0);
+
+        if (!valid)
+            ImGui::TextDisabled("Enter valid, positive dimensions.");
+
+        if (!valid) ImGui::BeginDisabled();
+        if (ImGui::Button("Add"))
+        {
+            telescope::Obstruction mask;
+            mask.transform.setPosition(d.positionMm);
+            mask.transform.setEulerDegrees(d.orientationDegrees);
+            if (d.shape == 0)
+                mask.surface.setAperture(optics::Aperture{
+                    optics::CircularAperture{d.outerRadiusMm}});
+            else if (d.shape == 1)
+                mask.surface.setAperture(optics::Aperture{
+                    optics::AnnularAperture{d.innerRadiusMm, d.outerRadiusMm}});
+            else if (d.shape == 2)
+                mask.surface.setAperture(optics::Aperture{
+                    optics::RectangularAperture{d.widthMm, d.heightMm}});
+            else
+                mask.surface.setAperture(optics::Aperture{
+                    optics::EllipticalAperture{d.widthMm * 0.5, d.heightMm * 0.5}});
+            project.addPrimitive(std::move(mask), d.name);
+            control.invalidate();
+            ImGui::CloseCurrentPopup();
+        }
+        if (!valid) ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel"))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+
+    void UI::drawAddLensPopup(
 		telescope::TelescopeProject& project,
 		optics::MaterialLibrary& materialLibrary,
 		raytracer::TraceController& control)
