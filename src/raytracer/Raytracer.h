@@ -40,11 +40,16 @@ namespace opticforge::raytracer {
 			const std::vector<telescope::PrimitiveRecord>& scene,
 			const telescope::ObservationPlane& observationPlane,
 			uint32_t max_interactions = 1000) const;
-	private:
+        // Compute OPD at a spherical reference centered on the ideal image.
+        // A common piston is removed using the first valid detector ray.
+        static void calculateReferenceWavefrontOpd(
+            TraceResult& result,
+            const glm::dvec3& idealImagePoint,
+            double imageSpaceIndex = 1.0);
 
+    private:
 
-
-		std::optional<RayIntersection> findClosestIntersection(
+        std::optional<RayIntersection> findClosestIntersection(
 			const optics::OpticalRay& ray,
 			const std::vector<telescope::PrimitiveRecord>& scene,
 			const telescope::ObservationPlane& observationPlane) const;
