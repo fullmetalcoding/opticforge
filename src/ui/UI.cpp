@@ -280,8 +280,8 @@ namespace opticforge::ui {
                                &d.heightMm);
         }
 
-        ImGui::InputDouble3("Position (mm)", &d.positionMm.x);
-        ImGui::InputDouble3("Rotation (degrees)", &d.orientationDegrees.x);
+        ImGui::InputScalarN("Position (mm)", ImGuiDataType_Double, &d.positionMm.x, 3);
+        ImGui::InputScalarN("Rotation (degrees)", ImGuiDataType_Double, &d.orientationDegrees.x, 3);
 
         const bool valid = !d.name.empty() &&
             std::isfinite(d.positionMm.x) && std::isfinite(d.positionMm.y) &&
