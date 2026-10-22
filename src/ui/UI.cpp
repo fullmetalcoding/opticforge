@@ -97,6 +97,7 @@ namespace opticforge::ui {
 		//Super janky. Refactor later to have an active menu dialog state. 
 		bool openAddLensPopup = false;
 		bool openAddMirrorPopup = false;
+        bool openAddObstructionPopup = false;
         bool openAddDiffractionGratingPopup = false;
 		bool openAboutPopup = false; 
 
@@ -142,14 +143,8 @@ namespace opticforge::ui {
 					if (ImGui::MenuItem("Mirror...")) {
 						openAddMirrorPopup = true;
 					}
-                    if (ImGui::MenuItem("Obstruction (rectangular mask)"))
-                    {
-                        telescope::Obstruction mask;
-                        mask.surface.setAperture(optics::Aperture{
-                            optics::RectangularAperture{ 10.0, 100.0 } });
-                        project.addPrimitive(std::move(mask), "Obstruction");
-                        traceController.invalidate();
-                    }
+                    if (ImGui::MenuItem("Obstruction..."))
+                        openAddObstructionPopup = true;
                     if (ImGui::MenuItem("Diffraction Grating...")) {
                         openAddDiffractionGratingPopup = true;
                     }
@@ -229,6 +224,9 @@ namespace opticforge::ui {
 		else if (openAddMirrorPopup) {
 			ImGui::OpenPopup("AddMirror");
 		}
+        else if (openAddObstructionPopup) {
+            ImGui::OpenPopup("AddObstruction");
+        }
         else if (openAddDiffractionGratingPopup) {
             ImGui::OpenPopup("AddDiffractionGrating");
         }
@@ -243,6 +241,7 @@ namespace opticforge::ui {
         drawAddDiffractionGratingPopup(
             project,
             traceController);
+        drawAddObstructionPopup(project, traceController);
 		drawPsfTraceWindow();
 		drawPrimitiveManipulationWindow(
 			project,
