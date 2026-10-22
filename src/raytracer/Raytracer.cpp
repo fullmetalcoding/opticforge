@@ -320,7 +320,13 @@ namespace opticforge::raytracer {
 							worldHit.normal =
 								primitive.transform.localToWorldNormal(
 									parentHit.normal);
-							if (absorbBackSide)
+							if (std::holds_alternative<optics::AbsorbingInterface>(
+                                    surface.opticalInterface().type()))
+                            {
+                                acceptAbsorbingHit(worldHit);
+                                return;
+                            }
+                            if (absorbBackSide)
 							{
 								const double incidence =
 									glm::dot(
