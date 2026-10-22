@@ -64,6 +64,18 @@ namespace opticforge::ui
         std::string name{ "Diffraction Grating" };
     };
 
+    struct AddObstructionDialogState
+    {
+        int shape = 0; // circle, annulus, rectangle, ellipse
+        double widthMm = 10.0;
+        double heightMm = 100.0;
+        double outerRadiusMm = 25.0;
+        double innerRadiusMm = 10.0;
+        glm::dvec3 positionMm{0.0, 0.0, 0.0};
+        glm::dvec3 orientationDegrees{0.0, 0.0, 0.0};
+        std::string name{"Obstruction"};
+    };
+
     enum class MirrorCurvature
     {
         Concave,
@@ -195,12 +207,17 @@ namespace opticforge::ui
         void drawAddMirrorPopup(
             telescope::TelescopeProject& project, raytracer::TraceController& control);
 
+        void drawAddObstructionPopup(
+            telescope::TelescopeProject& project,
+            raytracer::TraceController& control);
+
         void drawAddDiffractionGratingPopup(
             telescope::TelescopeProject& project,
             raytracer::TraceController& control);
 
 		AddLensDialogState m_addLensDialog;
         AddMirrorDialogState m_addMirrorDialog;
+        AddObstructionDialogState m_addObstructionDialog;
         AddDiffractionGratingDialogState m_addDiffractionGratingDialog;
 
         void drawPsfTraceWindow();
