@@ -142,6 +142,14 @@ namespace opticforge::ui {
 					if (ImGui::MenuItem("Mirror...")) {
 						openAddMirrorPopup = true;
 					}
+                    if (ImGui::MenuItem("Obstruction (rectangular mask)"))
+                    {
+                        telescope::Obstruction mask;
+                        mask.surface.setAperture(optics::Aperture{
+                            optics::RectangularAperture{ 10.0, 100.0 } });
+                        project.addPrimitive(std::move(mask), "Obstruction");
+                        traceController.invalidate();
+                    }
                     if (ImGui::MenuItem("Diffraction Grating...")) {
                         openAddDiffractionGratingPopup = true;
                     }
@@ -1936,6 +1944,10 @@ namespace opticforge::ui {
 						{
 							return "Detector";
 						}
+                        else if constexpr (std::is_same_v<T, telescope::Obstruction>)
+                        {
+                            return "Obstruction";
+                        }
 						else
 						{
 							return "Primitive";
