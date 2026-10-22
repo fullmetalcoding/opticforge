@@ -2188,6 +2188,67 @@ namespace opticforge::ui {
 				control.invalidate();
 			}
 
+            if (auto* mask = std::get_if<telescope::Obstruction>(primitive))
+            {
+                ImGui::Spacing();
+                ImGui::TextUnformatted("Obstruction Geometry");
+                ImGui::Separator();
+                const auto& aperture = mask->surface.aperture().geometry();
+                if (const auto* circle = std::get_if<optics::CircularAperture>(&aperture))
+                {
+                    double radius = circle->radius;
+                    if (ImGui::InputDouble("Radius (mm)", &radius) &&
+                        std::isfinite(radius) && radius > 0.0)
+                    {
+                        mask->surface.setAperture(optics::Aperture{
+                            optics::CircularAperture{radius}});
+                        control.invalidate();
+                    }
+                }
+                else if (const auto* annulus = std::get_if<optics::AnnularAperture>(&aperture))
+                {
+                    double inner = annulus->innerRadius;
+                    double outer = annulus->outerRadius;
+                    bool changed = ImGui::InputDouble("Inner radius (mm)", &inner);
+                    changed |= ImGui::InputDouble("Outer radius (mm)", &outer);
+                    if (changed && std::isfinite(inner) && std::isfinite(outer) &&
+                        inner >= 0.0 && outer > inner)
+                    {
+                        mask->surface.setAperture(optics::Aperture{
+                            optics::AnnularAperture{inner, outer}});
+                        control.invalidate();
+                    }
+                }
+                else if (const auto* rectangle = std::get_if<optics::RectangularAperture>(&aperture))
+                {
+                    double width = rectangle->width;
+                    double height = rectangle->height;
+                    bool changed = ImGui::InputDouble("Width (mm)", &width);
+                    changed |= ImGui::InputDouble("Height (mm)", &height);
+                    if (changed && std::isfinite(width) && std::isfinite(height) &&
+                        width > 0.0 && height > 0.0)
+                    {
+                        mask->surface.setAperture(optics::Aperture{
+                            optics::RectangularAperture{width, height}});
+                        control.invalidate();
+                    }
+                }
+                else if (const auto* ellipse = std::get_if<optics::EllipticalAperture>(&aperture))
+                {
+                    double width = 2.0 * ellipse->radiusX;
+                    double height = 2.0 * ellipse->radiusY;
+                    bool changed = ImGui::InputDouble("X diameter (mm)", &width);
+                    changed |= ImGui::InputDouble("Y diameter (mm)", &height);
+                    if (changed && std::isfinite(width) && std::isfinite(height) &&
+                        width > 0.0 && height > 0.0)
+                    {
+                        mask->surface.setAperture(optics::Aperture{
+                            optics::EllipticalAperture{width * 0.5, height * 0.5}});
+                        control.invalidate();
+                    }
+                }
+            }
+
 			//
 			// ---------------------------------------------------------
 			// Lens material
