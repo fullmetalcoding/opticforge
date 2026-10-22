@@ -128,6 +128,39 @@ namespace opticforge::raytracer {
 		return path;
 	}
 
+    void RayTracer::calculateReferenceWavefrontOpd(
+        TraceResult& result,
+        const glm::dvec3& idealImagePoint,
+        double imageSpaceIndex)
+    {
+        if (!std::isfinite(imageSpaceIndex) || imageSpaceIndex <= 0.0 ||
+            !std::isfinite(idealImagePoint.x) ||
+            !std::isfinite(idealImagePoint.y) ||
+            !std::isfinite(idealImagePoint.z))
+            return;
+
+        std::optional<double> reference;
+        for (auto& path : result.paths)
+        {
+            path.opticalPathDifferenceMm.reset();
+            if (path.termination != RayTermination::DetectorHit ||
+                path.interactions.empty() ||
+                !path.initialRay.launchPupilCoordinate)
+                continue;
+
+            const auto& hit = path.interactions.back().hit.position;
+            const double distance = glm::length(hit - idealImagePoint);
+            const double wavefrontPath =
+                path.opticalPathLength + imageSpaceIndex * distance;
+            if (!std::isfinite(wavefrontPath))
+                continue;
+
+            if (!reference)
+                reference = wavefrontPath;
+            path.opticalPathDifferenceMm = wavefrontPath - *reference;
+        }
+    }
+
 	//Lowest level. Find the closest interaction for the current ray
 	std::optional<RayIntersection> RayTracer::findClosestIntersection(
 		const optics::OpticalRay& ray,
