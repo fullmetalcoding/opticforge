@@ -484,6 +484,20 @@ int main()
     check(detectorPath.termination == raytracer::RayTermination::DetectorHit,
           "detector still accepts negative incidence");
 
+    telescope::Obstruction mask;
+    mask.surface.setAperture(
+        optics::Aperture{optics::RectangularAperture{10.0, 100.0}});
+    const telescope::PrimitiveRecord maskRecord{64, mask, "test mask"};
+    const auto blockedRay = trace(maskRecord, {0, 0, -10}, {0, 0, 1});
+    check(blockedRay.termination == raytracer::RayTermination::Absorbed,
+          "obstruction stops intersecting rays");
+    check(!blockedRay.interactions.empty() &&
+          blockedRay.interactions.front().primitiveId == 64,
+          "obstruction hit retains primitive id");
+    const auto clearRay = trace(maskRecord, {20, 0, -10}, {0, 0, 1});
+    check(clearRay.termination != raytracer::RayTermination::Absorbed,
+          "ray outside mask passes unobstructed");
+
     if (failures) std::cerr << failures << " assertion(s) failed\n";
     return failures ? 1 : 0;
 }
