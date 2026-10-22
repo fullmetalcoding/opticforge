@@ -854,4 +854,28 @@ namespace opticforge {
 	{
 		// Detector rendering has not yet been implemented.
 	}
+    void RenderSystem::drawPrimitive(
+        telescope::PrimitiveId id,
+        const telescope::Obstruction& obstruction,
+        const Camera& camera)
+    {
+        telescope::Mirror visual;
+        visual.transform = obstruction.transform;
+        visual.surface = obstruction.surface;
+        visual.thickness = 0.5;
+        drawPrimitive(id, visual, camera);
+    }
+
+    void RenderSystem::drawPrimitiveForPicking(
+        telescope::PrimitiveId id,
+        const telescope::Obstruction& obstruction,
+        const Camera& camera)
+    {
+        telescope::Mirror visual;
+        visual.transform = obstruction.transform;
+        visual.surface = obstruction.surface;
+        visual.thickness = 0.5;
+        drawPrimitiveForPicking(id, visual, camera);
+    }
+
 }
