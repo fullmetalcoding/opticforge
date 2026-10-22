@@ -67,6 +67,7 @@ namespace opticforge::ui
     struct AddObstructionDialogState
     {
         int shape = 0; // circle, annulus, rectangle, ellipse
+        double thicknessMm = 0.0;
         double widthMm = 10.0;
         double heightMm = 100.0;
         double outerRadiusMm = 25.0;
