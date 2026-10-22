@@ -497,6 +497,7 @@
         "id": {"type": "integer", "minimum": 1},
         "name": {"type": "string", "minLength": 1},
         "type": {"const": "obstruction"},
+        "thicknessMm": {"type": "number", "minimum": 0},
         "transform": {"$ref": "#/definitions/transform"},
         "surface": {"$ref": "#/definitions/opticalSurface"}
       }
