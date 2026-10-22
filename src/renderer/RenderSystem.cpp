@@ -927,12 +927,19 @@ namespace opticforge {
         const telescope::Obstruction& obstruction,
         const Camera& camera)
     {
-        telescope::Mirror visual;
-        visual.transform = obstruction.transform;
-        visual.surface = obstruction.surface;
-        visual.thickness = obstruction.thicknessMm > 0.0
-            ? obstruction.thicknessMm : 0.5;
-        drawPrimitive(id, visual, camera);
+        auto& renderObject = getOrCreateObstructionRenderObject(id, obstruction);
+        m_meshShader.bind();
+        primitiveSetup(m_meshShader, obstruction.transform, camera);
+        m_meshShader.setVec3("uBaseColor",
+            isHovered(id) ? glm::vec3(1.0f, 0.75f, 0.10f)
+                          : glm::vec3(0.35f, 0.37f, 0.40f));
+        m_meshShader.setFloat("uOpacity", 1.0f);
+        m_meshShader.setFloat("uReflectivity", 0.0f);
+        renderObject.mesh.bind();
+        glDrawElements(GL_TRIANGLES, renderObject.mesh.indexCount(),
+                       GL_UNSIGNED_INT, nullptr);
+        renderObject.mesh.unbind();
+        ShaderProgram::unbind();
     }
 
     void RenderSystem::drawPrimitiveForPicking(
@@ -940,12 +947,15 @@ namespace opticforge {
         const telescope::Obstruction& obstruction,
         const Camera& camera)
     {
-        telescope::Mirror visual;
-        visual.transform = obstruction.transform;
-        visual.surface = obstruction.surface;
-        visual.thickness = obstruction.thicknessMm > 0.0
-            ? obstruction.thicknessMm : 0.5;
-        drawPrimitiveForPicking(id, visual, camera);
+        auto& renderObject = getOrCreateObstructionRenderObject(id, obstruction);
+        m_pickingShader.bind();
+        primitiveSetup(m_pickingShader, obstruction.transform, camera);
+        setPickingPrimitiveId(id);
+        renderObject.mesh.bind();
+        glDrawElements(GL_TRIANGLES, renderObject.mesh.indexCount(),
+                       GL_UNSIGNED_INT, nullptr);
+        renderObject.mesh.unbind();
+        ShaderProgram::unbind();
     }
 
 }
