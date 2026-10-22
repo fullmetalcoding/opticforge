@@ -420,7 +420,8 @@ namespace opticforge::raytracer {
                             true);
                     }
 					else if constexpr (
-						std::is_same_v<Primitive, telescope::Detector>)
+						std::is_same_v<Primitive, telescope::Detector> ||
+                        std::is_same_v<Primitive, telescope::Obstruction>)
 					{
 						testSurface(
 							primitive.surface,
