@@ -529,6 +529,23 @@ int main()
               raytracer::RayTermination::Absorbed,
           "elliptical obstruction clears outside minor axis");
 
+    telescope::Obstruction solidVane;
+    solidVane.surface.setAperture(optics::Aperture{
+        optics::RectangularAperture{2.0, 20.0}});
+    solidVane.thicknessMm = 4.0;
+    const telescope::PrimitiveRecord solidRecord{68, solidVane, "solid vane"};
+    check(trace(solidRecord, {0, 0, -10}, {0, 0, 1}).termination ==
+              raytracer::RayTermination::Absorbed,
+          "solid vane absorbs front-face rays");
+    check(trace(solidRecord, {0, 0, 10}, {0, 0, -1}).termination ==
+              raytracer::RayTermination::Absorbed,
+          "solid vane absorbs rear-face rays");
+    check(trace(solidRecord, {-10, 0, 0}, {1, 0, 0}).termination ==
+              raytracer::RayTermination::Absorbed,
+          "solid vane absorbs edge-on rays");
+    check(trace(solidRecord, {3, 0, -10}, {0, 0, 1}).termination !=
+              raytracer::RayTermination::Absorbed,
+          "solid vane clears rays outside box");
     if (failures) std::cerr << failures << " assertion(s) failed\n";
     return failures ? 1 : 0;
 }
