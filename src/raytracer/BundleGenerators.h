@@ -36,4 +36,22 @@ namespace opticforge::raytracer
         double offAxisAngleXRadians,
         double offAxisAngleYRadians,
         const RayBundleSpectrum& spectrum = {});
+
+    // Compatibility for older callers; the seed has no effect.
+    [[deprecated("Seed is ignored; use the seven-argument overload")]]
+    inline RayBundle generatePupilRayBundle(
+        std::size_t numberOfRays,
+        double pupilDiameter,
+        double pupilDistanceMinusZ,
+        double pupilElevationY,
+        double offAxisAngleXRadians,
+        double offAxisAngleYRadians,
+        const RayBundleSpectrum& spectrum,
+        std::uint64_t /*legacySeed*/)
+    {
+        return generatePupilRayBundle(
+            numberOfRays, pupilDiameter, pupilDistanceMinusZ,
+            pupilElevationY, offAxisAngleXRadians, offAxisAngleYRadians,
+            spectrum);
+    }
 }
