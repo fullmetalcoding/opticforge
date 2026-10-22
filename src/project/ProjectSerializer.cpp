@@ -657,6 +657,7 @@ namespace opticforge::project
                         {
                             return {
                                 { "type", "obstruction" },
+                                { "thicknessMm", primitive.thicknessMm },
                                 { "transform", serializeTransform(primitive.transform) },
                                 { "surface", serializeOpticalSurface(primitive.surface) }
                             };
@@ -807,6 +808,9 @@ namespace opticforge::project
             {
                 telescope::Obstruction obstruction;
                 obstruction.transform = deserializeTransform(value.at("transform"));
+                obstruction.thicknessMm = value.value("thicknessMm", 0.0);
+                if (!std::isfinite(obstruction.thicknessMm) || obstruction.thicknessMm < 0.0)
+                    fail("Invalid obstruction thickness");
                 obstruction.surface = deserializeOpticalSurface(value.at("surface"));
                 obstruction.surface.opticalInterface().setAbsorbing();
                 return { id, std::move(obstruction), name };
